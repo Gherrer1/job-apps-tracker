@@ -4,7 +4,7 @@
   "description": "automatically organize/track all job applications and their statuses in a spreadsheet using Gmail and Google Sheets API",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "start": "nodemon app.js"
   },
   "repository": {
     "type": "git",
@@ -17,7 +17,13 @@
   },
   "homepage": "https://github.com/Gherrer1/job-apps-tracker#readme",
   "dependencies": {
+    "ejs": "^2.5.7",
+    "express": "^4.15.4",
     "google-auth-library": "^0.10.0",
-    "googleapis": "^21.3.0"
+    "googleapis": "^21.3.0",
+    "morgan": "^1.8.2"
+  },
+  "devDependencies": {
+    "nodemon": "^1.11.0"
   }
 }
