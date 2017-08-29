@@ -1,0 +1,23 @@
+{
+  "name": "job-apps-tracker",
+  "version": "1.0.0",
+  "description": "automatically organize/track all job applications and their statuses in a spreadsheet using Gmail and Google Sheets API",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Gherrer1/job-apps-tracker.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Gherrer1/job-apps-tracker/issues"
+  },
+  "homepage": "https://github.com/Gherrer1/job-apps-tracker#readme",
+  "dependencies": {
+    "google-auth-library": "^0.10.0",
+    "googleapis": "^21.3.0"
+  }
+}
