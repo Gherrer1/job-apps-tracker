@@ -46,16 +46,21 @@ var handleClientLoad = (function() {
 		if(isSignedIn) {
 			authorizeButton.style.display = 'none';
 			signoutButton.style.display = 'block';
-			// listMajors();
-			// listLabels();
-			// ['Summer 17', 'Job Apps', 'CryptoCharts'].forEach(function(title) {
-			// 	addSpreadsheetChoice(title);
-			// });
-			// getAllSheets();
+			// listMajors();// listLabels();// ['Summer 17', 'Job Apps', 'CryptoCharts'].forEach(function(title) {// 	addSpreadsheetChoice(title);// });// getAllSheets();
+			/* Essentially where all the magic happens. Once app acknowledges that user is signed in, the app can start running. */
+
+			// lets create a spreadsheet if it doesn't already exist
+			appendPre('Logged in, retrieving all sheets...');
 			retrieveAllFiles(function(filesArr) {
-				filesArr.forEach(function(file) {
-					console.log(file);
-				});
+				appendPre('Retrieved all sheets, looking for job-apps-organizer...');
+				var JOB_APPS_ORGANIZER_SHEET_NAME = 'job-apps-organizer';
+				for(var i = 0; i < filesArr.length; i++) {
+					if(filesArr[i].name === JOB_APPS_ORGANIZER_SHEET_NAME) {
+						return appendPre('Found it.');
+					}
+				}
+				appendPre('Didnt find it. Creating it now');
+				createJobAppsSheet(JOB_APPS_ORGANIZER_SHEET_NAME);
 			});
 		} else {
 			authorizeButton.style.display = 'block';
@@ -164,6 +169,22 @@ var handleClientLoad = (function() {
 		};
 		var initialRequest = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"' });
 		retrievePageOfFiles(initialRequest, []);
+	}
+
+	/**
+	 * Creates the job-apps-organizer sheet that we will populate with sent job applications data
+	 *
+	 * @param {string} name The name of the to-be-created sheet.
+	 */
+	function createJobAppsSheet(name) {
+		var spreadsheetProperties = { title: name };
+		var spreadsheetBody = { properties: spreadsheetProperties };
+		var request = gapi.client.sheets.spreadsheets.create({}, spreadsheetBody);
+		request.then(function(response) {
+			console.log(response.result);
+		}, function(err) {
+			console.log('error: ' + err.result.error.message);
+		})
 	}
 
 	return handleClientLoad;
