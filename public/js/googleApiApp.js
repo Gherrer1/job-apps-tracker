@@ -232,6 +232,7 @@ var handleClientLoad = (function() {
 	 */
 	function handleSignoutClick(event) {
 		gapi.auth2.getAuthInstance().signOut();
+		clearPre();
 	}
 
 	/**
@@ -243,6 +244,12 @@ var handleClientLoad = (function() {
 		var pre = document.getElementById('content');
 		var textContent = document.createTextNode(message + '\n');
 		pre.appendChild(textContent);
+	}
+
+	/* removes all the text from the pre element */
+	function clearPre() {
+		var pre = document.getElementById('content');
+		pre.innerHTML = '';
 	}
 
 	/**
