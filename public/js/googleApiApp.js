@@ -1,12 +1,120 @@
 var handleClientLoad = (function() {
 
+	var Sheets = (function() {
+		/**
+		 * Finds a file by the name passed in
+		 *
+		 * @param {string} name The name of the file to find
+		 */
+		function findSheetNamed(name) {
+			return new Promise(function(resolve, reject) {
+				var request = gapi.client.drive.files.list({ q: `mimeType="application/vnd.google-apps.spreadsheet" and name="${name}" and trashed=false` });
+				request.execute(function(response) {
+					if(response.error) {
+						return reject(response.error.message);
+					}
+
+					return (response.files && response.files.length > 0) ? resolve(response.files[0]) : resolve(null);
+				});
+			});
+		}
+
+		/**
+		 * Creates the job-apps-organizer sheet that we will populate with sent job applications data
+		 *
+		 * @param {string} name The name of the to-be-created sheet.
+		 */
+		function createSheetNamed(name) {
+			return new Promise(function(resolve, reject) {
+				var spreadsheetProperties = { title: name };
+				var spreadsheetBody = { properties: spreadsheetProperties };
+				var request = gapi.client.sheets.spreadsheets.create({}, spreadsheetBody);
+				request.then(function(response) {
+					return resolve(response);
+				});
+			});
+		}
+
+		/**
+		 * Retreive a list of File resources.
+		 *
+		 * @param {Function} callback Function to call when the request is complete.
+		 */
+		function retrieveAllFiles(callback) {
+			// @param {Object} request Request object on which to call execute()
+			// @param {Array} result Array on which to append a page's worth of results until we've received all files.
+			var retrievePageOfFiles = function(request, result) {
+				request.execute(function(response) {
+					result = result.concat(response.files);
+					var nextPageToken = response.nextPageToken;
+					if(nextPageToken) {
+						request = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"', pageToken: nextPageToken });
+						retrievePageOfFiles(request, result);
+					} else {
+						callback(result);
+					}
+				});
+			};
+			var initialRequest = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"' });
+			retrievePageOfFiles(initialRequest, []);
+		}
+
+		var LAST_SCAN_DATE_CELL = 'Sheet1!J1:K1';
+		/**
+		 * Checks Cell H1 to determine when the last email scan was, if ever
+		 *
+		 * @param {string} id Id of spreadsheet to read
+		 */
+		function readLastEmailScan(id) {
+			return new Promise(function(resolve, reject) {
+				gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: id, range: LAST_SCAN_DATE_CELL })
+					.then(function(result) {
+						if(result.result.values && result.result.values.length > 0) {
+							// console.log(typeof result.result.values[0][0]);
+							return resolve(result.result.values[0][0]);
+						}
+						return resolve('');
+				});
+			});
+		}
+
+		function writeLastEmailScan(id) {
+			return new Promise(function(resolve, reject) {
+				var values = [
+					[new Date()]
+				];
+				var body = {
+					values: values
+				};
+				gapi.client.sheets.spreadsheets.values.update({
+					spreadsheetId: id,
+					range: LAST_SCAN_DATE_CELL,
+					resource: body,
+					valueInputOption: 'RAW'
+				})
+					.then(function(result) {
+						return resolve(result);
+					})
+			});
+		}
+
+		var publicAPI = {
+			retrieveAllFiles: retrieveAllFiles,
+			createSheetNamed: createSheetNamed,
+			findSheetNamed: findSheetNamed,
+			readLastEmailScan: readLastEmailScan,
+			writeLastEmailScan: writeLastEmailScan
+		};
+		return publicAPI;
+	})();
+
 	var CLIENT_ID = '643118581198-1ahtvd2u2o98l2hur59mrctu60km0gb7.apps.googleusercontent.com';
 
 	// Array of API discovery doc URLs for APIs used by the quickstart - I guess this adds namespaces (gmail, sheets) to the gapi.client object
 	// because we were allowed to access them and make requests with them before we added the necessary scopes, we just received 403 responses
 	var DISCOVERY_DOCS = ['https://sheets.googleapis.com/$discovery/rest?version=v4', 'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest', 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
 
-	// Authorization scopes required by the API; multiple scopes can be included, separated by spaces. - tells googles servers that your app/clientID 
+	// Authorization scopes required by the API; multiple scopes can be included, separated by spaces. - tells googles servers that your app/clientID
 	// can make certain requests
 	var SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive";
 
@@ -51,17 +159,58 @@ var handleClientLoad = (function() {
 
 			// lets create a spreadsheet if it doesn't already exist
 			appendPre('Logged in, retrieving all sheets...');
-			retrieveAllFiles(function(filesArr) {
-				appendPre('Retrieved all sheets, looking for job-apps-organizer...');
-				var JOB_APPS_ORGANIZER_SHEET_NAME = 'job-apps-organizer';
-				for(var i = 0; i < filesArr.length; i++) {
-					if(filesArr[i].name === JOB_APPS_ORGANIZER_SHEET_NAME) {
-						return appendPre('Found it.');
+
+			var JOB_APPS_ORGANIZER_SHEET_NAME = 'fake1';
+			var _sheetId;
+			Sheets.findSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
+				.then(function handleSearchResult(result) {
+					appendPre('Done searching for spreadsheet');
+					if(!result)
+						appendPre('Didnt find spreadsheet named ' + JOB_APPS_ORGANIZER_SHEET_NAME + ', creating one...');
+					return result ? result.id : Sheets.createSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME);
+				})
+				.then(function parseSheetID(sheetID) {
+					if(typeof sheetID === 'object') {
+						let newlyCreatedSheet = sheetID;
+						sheetID = newlyCreatedSheet.result.spreadsheetId;
 					}
-				}
-				appendPre('Didnt find it. Creating it now');
-				createJobAppsSheet(JOB_APPS_ORGANIZER_SHEET_NAME);
-			});
+					_sheetId = sheetID;
+					return sheetID; // string
+				})
+				.then(function checkLastEmailScan(sheetID) {
+					appendPre('Your spreadsheets ID is ' + sheetID);
+					return Sheets.readLastEmailScan(sheetID);
+				})
+				.then(function handleLastScanReadResult(result) {
+					// console.log(result);
+					appendPre(result ? 'last email scan was on ' + result : 'No email scans yet');
+					return Promise.resolve(result);
+				})
+				.then(function scanAfter(date) {
+					appendPre('Just completed fake scan lol');
+					return Promise.resolve();
+				})
+				.then(function writeLastScan() {
+					return Sheets.writeLastEmailScan(_sheetId);
+					// return Promise.resolve();
+				})
+				.then(function(result) {
+					console.log(result);
+				})
+				.catch(function(errorMsg) {
+					console.log(errorMsg);
+				});
+			// Sheets.retrieveAllFiles(function(filesArr) {
+			// 	appendPre('Retrieved all sheets, looking for job-apps-organizer...');
+			// 	var JOB_APPS_ORGANIZER_SHEET_NAME = 'job-apps-organizer';
+			// 	for(var i = 0; i < filesArr.length; i++) {
+			// 		if(filesArr[i].name === JOB_APPS_ORGANIZER_SHEET_NAME) {
+			// 			return appendPre('Found it.');
+			// 		}
+			// 	}
+			// 	appendPre('Didnt find it. Creating it now');
+			// 	Sheets.createSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME);
+			// });
 		} else {
 			authorizeButton.style.display = 'block';
 			signoutButton.style.display = 'none';
@@ -145,46 +294,6 @@ var handleClientLoad = (function() {
 		var p = document.createElement('p');
 		p.appendChild( document.createTextNode(message) );
 		mainDiv.appendChild( p );
-	}
-
-	/**
-	 * Retreive a list of File resources.
-	 *
-	 * @param {Function} callback Function to call when the request is complete.
-	 */
-	function retrieveAllFiles(callback) {
-		// @param {Object} request Request object on which to call execute()
-		// @param {Array} result Array on which to append a page's worth of results until we've received all files.
-		var retrievePageOfFiles = function(request, result) {
-			request.execute(function(response) {
-				result = result.concat(response.files);
-				var nextPageToken = response.nextPageToken;
-				if(nextPageToken) {
-					request = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"', pageToken: nextPageToken });
-					retrievePageOfFiles(request, result);
-				} else {
-					callback(result);
-				}
-			});
-		};
-		var initialRequest = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"' });
-		retrievePageOfFiles(initialRequest, []);
-	}
-
-	/**
-	 * Creates the job-apps-organizer sheet that we will populate with sent job applications data
-	 *
-	 * @param {string} name The name of the to-be-created sheet.
-	 */
-	function createJobAppsSheet(name) {
-		var spreadsheetProperties = { title: name };
-		var spreadsheetBody = { properties: spreadsheetProperties };
-		var request = gapi.client.sheets.spreadsheets.create({}, spreadsheetBody);
-		request.then(function(response) {
-			console.log(response.result);
-		}, function(err) {
-			console.log('error: ' + err.result.error.message);
-		})
 	}
 
 	return handleClientLoad;

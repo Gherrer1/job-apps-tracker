@@ -1,0 +1,8 @@
+
+once signed in:
+	check if a sheet named "job-apps-tracker" exists
+	if not, create it
+	check cell x:y for last_email_scan
+	if none, scan all emails, otherwise scan all emails after that date
+	parse scanned emails looking for applications_sent, applications_rejected, applications_interested
+	update sheet to reflect statuses
