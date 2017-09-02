@@ -182,7 +182,10 @@ var handleClientLoad = (function() {
 					return Sheets.readLastEmailScan(sheetID);
 				})
 				.then(function handleLastScanReadResult(result) {
-					// console.log(result);
+					console.log('type of last scan date:', typeof result);
+					var date = new Date(result);
+					console.log(date, typeof date);
+					console.log('is date instance of Date?', date instanceof Date);
 					appendPre(result ? 'last email scan was on ' + result : 'No email scans yet');
 					return Promise.resolve(result);
 				})
