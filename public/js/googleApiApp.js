@@ -123,9 +123,44 @@ var handleClientLoad = (function() {
 			});
 		}
 
+		function scanAll() {
+			return new Promise(function(resolve, reject) {
+				gapi.client.gmail.users.messages.list({ userId: 'me', q: '"application"', maxResults: 5000 })
+					.then(function(response) {
+						// console.log(response.result.messages);
+						appendPre('Scanned all messages...\n\n');
+						// console.log(messages);
+						return resolve(response.result.messages);
+						// return resolve(messages ? messages : []);
+					});
+			});
+		}
+
+		function getMessagesByIds(ids) {
+			return new Promise(function(resolve, reject) {
+				var ajaxCallsRemaining = ids.length;
+				var max = ajaxCallsRemaining;
+				var returnedData = [];
+
+				for(var i = 0; i < ids.length; i++) {
+					gapi.client.gmail.users.messages.get({ userId: 'me', id: ids[i] })
+						.then(function(response) {
+							returnedData.push(response);
+							console.log(response);
+							--ajaxCallsRemaining;
+							console.log(`${max-ajaxCallsRemaining} calls completed, ${ajaxCallsRemaining} left`);
+							if(ajaxCallsRemaining <= 0) {
+								return resolve(returnedData);
+							}
+						});
+				}
+			});
+		}
+
 		var publicAPI = {
-			scanAll: listLabels,
-			scanAfter: listLabels
+			scanAll: scanAll,
+			scanAfter: scanAll,
+			getMessagesByIds: getMessagesByIds
 		};
 		return publicAPI;
 	})();
@@ -209,8 +244,24 @@ var handleClientLoad = (function() {
 					console.log('Date: ', date, typeof date);
 					return date == null ? Mail.scanAll() : Mail.scanAfter(date);
 				})
-				.then(function handleEmails(emails) {
-					console.log(emails);
+				.then(function handleMinimalEmailData(emails) {
+					return Mail.getMessagesByIds(emails.map(function(email) { return email.id }));
+					
+					// return new Promise(function(resolve, reject) {
+					// 	emails.forEach(function(email) { 
+					// 		Mail.getMessageById(email.id)
+					// 			.then(function(message) {
+					// 				console.log(message);
+					// 			});
+					// 	});
+					// 	return resolve();
+					// });
+				})
+				.then(function handleMessages(allResponses) {
+					// console.log('Done collecting all ' + allResponses.length + ' messages!');
+					appendPre('Done fetching all ' + allResponses.length + ' messages!');
+					console.log(allResponses.map( function(msg) { return (msg.result && msg.result.snippet ? msg.result.snippet : 'Error')} ) );
+					return Promise.resolve();
 				})
 				.then(function writeScanTimestamp() {
 					return Sheets.writeLastEmailScan(_sheetId);
