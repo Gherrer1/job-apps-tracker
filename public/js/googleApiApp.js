@@ -108,6 +108,28 @@ var handleClientLoad = (function() {
 		return publicAPI;
 	})();
 
+	var Mail = (function() {
+		// Print all labels in the authorized user's inbox. If no labels are found an appropriate message is printed.
+		function listLabels() {
+			return new Promise(function(resolve, reject) {
+				gapi.client.gmail.users.labels.list({
+					'userId': 'me'
+				}).then(function(response) {
+					var labels = response.result.labels;
+					// appendPre('Labels:');
+
+					return resolve(labels);
+				});
+			});
+		}
+
+		var publicAPI = {
+			scanAll: listLabels,
+			scanAfter: listLabels
+		};
+		return publicAPI;
+	})();
+
 	var CLIENT_ID = '643118581198-1ahtvd2u2o98l2hur59mrctu60km0gb7.apps.googleusercontent.com';
 
 	// Array of API discovery doc URLs for APIs used by the quickstart - I guess this adds namespaces (gmail, sheets) to the gapi.client object
@@ -154,16 +176,14 @@ var handleClientLoad = (function() {
 		if(isSignedIn) {
 			authorizeButton.style.display = 'none';
 			signoutButton.style.display = 'block';
-			// listMajors();// listLabels();// ['Summer 17', 'Job Apps', 'CryptoCharts'].forEach(function(title) {// 	addSpreadsheetChoice(title);// });// getAllSheets();
 			/* Essentially where all the magic happens. Once app acknowledges that user is signed in, the app can start running. */
 
-			// lets create a spreadsheet if it doesn't already exist
-			appendPre('Logged in, retrieving all sheets...');
+			appendPre('Logged in, looking for your organizer sheet...');
 
 			var JOB_APPS_ORGANIZER_SHEET_NAME = 'fake1';
 			var _sheetId;
 			Sheets.findSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
-				.then(function handleSearchResult(result) {
+				.then(function createSheetIfDoesntExist(result) {
 					appendPre('Done searching for spreadsheet');
 					if(!result)
 						appendPre('Didnt find spreadsheet named ' + JOB_APPS_ORGANIZER_SHEET_NAME + ', creating one...');
@@ -182,18 +202,17 @@ var handleClientLoad = (function() {
 					return Sheets.readLastEmailScan(sheetID);
 				})
 				.then(function handleLastScanReadResult(result) {
-					console.log('type of last scan date:', typeof result);
-					var date = new Date(result);
-					console.log(date, typeof date);
-					console.log('is date instance of Date?', date instanceof Date);
 					appendPre(result ? 'last email scan was on ' + result : 'No email scans yet');
-					return Promise.resolve(result);
+					return Promise.resolve(result ? new Date(result) : null);
 				})
 				.then(function scanAfter(date) {
-					appendPre('Just completed fake scan lol');
-					return Promise.resolve();
+					console.log('Date: ', date, typeof date);
+					return date == null ? Mail.scanAll() : Mail.scanAfter(date);
 				})
-				.then(function writeLastScan() {
+				.then(function handleEmails(emails) {
+					console.log(emails);
+				})
+				.then(function writeScanTimestamp() {
 					return Sheets.writeLastEmailScan(_sheetId);
 					// return Promise.resolve();
 				})
@@ -203,17 +222,6 @@ var handleClientLoad = (function() {
 				.catch(function(errorMsg) {
 					console.log(errorMsg);
 				});
-			// Sheets.retrieveAllFiles(function(filesArr) {
-			// 	appendPre('Retrieved all sheets, looking for job-apps-organizer...');
-			// 	var JOB_APPS_ORGANIZER_SHEET_NAME = 'job-apps-organizer';
-			// 	for(var i = 0; i < filesArr.length; i++) {
-			// 		if(filesArr[i].name === JOB_APPS_ORGANIZER_SHEET_NAME) {
-			// 			return appendPre('Found it.');
-			// 		}
-			// 	}
-			// 	appendPre('Didnt find it. Creating it now');
-			// 	Sheets.createSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME);
-			// });
 		} else {
 			authorizeButton.style.display = 'block';
 			signoutButton.style.display = 'none';
@@ -250,60 +258,6 @@ var handleClientLoad = (function() {
 	function clearPre() {
 		var pre = document.getElementById('content');
 		pre.innerHTML = '';
-	}
-
-	/**
-	 * Print the names and majors of students in a sample spreadsheet:
-	 * https://docs.google.com/spreadsheets/d/1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms/edit
-	 */
-	function listMajors() {
-		gapi.client.sheets.spreadsheets.values.get({
-			spreadsheetId: '1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgvE2upms',
-			range: 'Class Data!A2:E'
-		}).then(function(response) {
-			var range = response.result;
-			if(range.values.length > 0) {
-				appendPre('Name, Major:');
-				for(var i = 0; i < range.values.length; i++) {
-					var row = range.values[i];
-					appendPre(row[0] + ', ' + row[4]);
-				}
-			} else {
-				appendPre('No data found.');
-			}
-		}, function(response) {
-			appendPre('Error: ' + response.result.error.message);
-		});
-	}
-
-	// Print all labels in the authorized user's inbox. If no labels are found an appropriate message is printed.
-	function listLabels() {
-		gapi.client.gmail.users.labels.list({
-			'userId': 'me'
-		}).then(function(response) {
-			var labels = response.result.labels;
-			appendPre('Labels:');
-
-			if(labels && labels.length > 0) {
-				for(var i = 0; i < labels.length; i++) {
-					var label = labels[i];
-					appendPre(label.name);
-					console.log(label);
-				}
-			} else {
-				appendPre('No Labels found.');
-			}
-		}, function(response) {
-			appendPre('Error: ' + response.result.error.message);
-		});
-	}
-
-	// add a representation of a sheet to the DOM
-	function addSpreadsheetChoice(message) {
-		var mainDiv = document.getElementById('app');
-		var p = document.createElement('p');
-		p.appendChild( document.createTextNode(message) );
-		mainDiv.appendChild( p );
 	}
 
 	return handleClientLoad;
