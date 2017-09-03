@@ -6,3 +6,5 @@ once signed in:
 	if none, scan all emails, otherwise scan all emails after that date
 	parse scanned emails looking for applications_sent, applications_rejected, applications_interested
 	update sheet to reflect statuses
+
+Maybe a more reliable mechanism for only fetching brand new job-application emails is to label processed ones with 'processed' label

@@ -109,6 +109,9 @@ var handleClientLoad = (function() {
 	})();
 
 	var Mail = (function() {
+		/* Really the magic of this module: the search query that will find all applications-sent emails */
+		var apply_q = '(you found)'; //'("submitting" "application")'
+		var rejected_q = '(not move forward)';
 		// Print all labels in the authorized user's inbox. If no labels are found an appropriate message is printed.
 		function listLabels() {
 			return new Promise(function(resolve, reject) {
@@ -125,7 +128,7 @@ var handleClientLoad = (function() {
 
 		function scanAll() {
 			return new Promise(function(resolve, reject) {
-				gapi.client.gmail.users.messages.list({ userId: 'me', q: '"application"', maxResults: 5000 })
+				gapi.client.gmail.users.messages.list({ userId: 'me', q: rejected_q, maxResults: 5000 })
 					.then(function(response) {
 						// console.log(response.result.messages);
 						appendPre('Scanned all messages...\n\n');
@@ -136,6 +139,7 @@ var handleClientLoad = (function() {
 			});
 		}
 
+		// Study this
 		function getMessagesByIds(ids) {
 			return new Promise(function(resolve, reject) {
 				var ajaxCallsRemaining = ids.length;
@@ -232,7 +236,7 @@ var handleClientLoad = (function() {
 					_sheetId = sheetID;
 					return sheetID; // string
 				})
-				.then(function checkLastEmailScan(sheetID) {
+				.then(function readLastEmailScan(sheetID) {
 					appendPre('Your spreadsheets ID is ' + sheetID);
 					return Sheets.readLastEmailScan(sheetID);
 				})
@@ -245,22 +249,14 @@ var handleClientLoad = (function() {
 					return date == null ? Mail.scanAll() : Mail.scanAfter(date);
 				})
 				.then(function handleMinimalEmailData(emails) {
+					//
 					return Mail.getMessagesByIds(emails.map(function(email) { return email.id }));
-					
-					// return new Promise(function(resolve, reject) {
-					// 	emails.forEach(function(email) { 
-					// 		Mail.getMessageById(email.id)
-					// 			.then(function(message) {
-					// 				console.log(message);
-					// 			});
-					// 	});
-					// 	return resolve();
-					// });
 				})
 				.then(function handleMessages(allResponses) {
 					// console.log('Done collecting all ' + allResponses.length + ' messages!');
 					appendPre('Done fetching all ' + allResponses.length + ' messages!');
-					console.log(allResponses.map( function(msg) { return (msg.result && msg.result.snippet ? msg.result.snippet : 'Error')} ) );
+					// console.log(allResponses.map( function(msg) { return (msg.result && msg.result.snippet ? msg.result.snippet : 'Error')} ) );
+					allResponses.map( msg => (msg.result && msg.result.snippet ? msg.result.snippet : 'Error') ).forEach( msg => appendPre(msg) );
 					return Promise.resolve();
 				})
 				.then(function writeScanTimestamp() {
@@ -268,9 +264,11 @@ var handleClientLoad = (function() {
 					// return Promise.resolve();
 				})
 				.then(function(result) {
-					console.log(result);
+					//
+					appendPre( result.status === 200 ? 'Saved most recent email scan!' : 'Failed to save most recent email scan' );
 				})
 				.catch(function(errorMsg) {
+					//
 					console.log(errorMsg);
 				});
 		} else {
