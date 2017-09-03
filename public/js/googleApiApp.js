@@ -70,7 +70,6 @@ var handleClientLoad = (function() {
 				gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: id, range: LAST_SCAN_DATE_CELL })
 					.then(function(result) {
 						if(result.result.values && result.result.values.length > 0) {
-							// console.log(typeof result.result.values[0][0]);
 							return resolve(result.result.values[0][0]);
 						}
 						return resolve('');
@@ -98,20 +97,28 @@ var handleClientLoad = (function() {
 			});
 		}
 
+		function recordApplicationStatuses(responsesHeaderData, sheetID) {
+
+			responsesHeaderData.forEach( i => console.log(i) );
+			return Promise.resolve();
+		}
+
 		var publicAPI = {
 			retrieveAllFiles: retrieveAllFiles,
 			createSheetNamed: createSheetNamed,
 			findSheetNamed: findSheetNamed,
 			readLastEmailScan: readLastEmailScan,
-			writeLastEmailScan: writeLastEmailScan
+			writeLastEmailScan: writeLastEmailScan,
+			recordApplicationStatuses: recordApplicationStatuses
 		};
 		return publicAPI;
 	})();
 
 	var Mail = (function() {
 		/* Really the magic of this module: the search query that will find all applications-sent emails */
-		var apply_q = '(you found)'; //'("submitting" "application")'
-		var rejected_q = '(not move forward)';
+		var apply_q = '(received application) OR "you applied to"'; //'("submitting" "application")'
+		// var rejected_q = '(not move forward)';
+
 		// Print all labels in the authorized user's inbox. If no labels are found an appropriate message is printed.
 		function listLabels() {
 			return new Promise(function(resolve, reject) {
@@ -128,13 +135,10 @@ var handleClientLoad = (function() {
 
 		function scanAll() {
 			return new Promise(function(resolve, reject) {
-				gapi.client.gmail.users.messages.list({ userId: 'me', q: rejected_q, maxResults: 5000 })
+				gapi.client.gmail.users.messages.list({ userId: 'me', q: apply_q, maxResults: 5000 })
 					.then(function(response) {
-						// console.log(response.result.messages);
 						appendPre('Scanned all messages...\n\n');
-						// console.log(messages);
 						return resolve(response.result.messages);
-						// return resolve(messages ? messages : []);
 					});
 			});
 		}
@@ -150,7 +154,7 @@ var handleClientLoad = (function() {
 					gapi.client.gmail.users.messages.get({ userId: 'me', id: ids[i] })
 						.then(function(response) {
 							returnedData.push(response);
-							console.log(response);
+							// console.log(response);
 							--ajaxCallsRemaining;
 							console.log(`${max-ajaxCallsRemaining} calls completed, ${ajaxCallsRemaining} left`);
 							if(ajaxCallsRemaining <= 0) {
@@ -253,11 +257,31 @@ var handleClientLoad = (function() {
 					return Mail.getMessagesByIds(emails.map(function(email) { return email.id }));
 				})
 				.then(function handleMessages(allResponses) {
-					// console.log('Done collecting all ' + allResponses.length + ' messages!');
 					appendPre('Done fetching all ' + allResponses.length + ' messages!');
-					// console.log(allResponses.map( function(msg) { return (msg.result && msg.result.snippet ? msg.result.snippet : 'Error')} ) );
-					allResponses.map( msg => (msg.result && msg.result.snippet ? msg.result.snippet : 'Error') ).forEach( msg => appendPre(msg) );
-					return Promise.resolve();
+					// TODO: what we're passing onto the next Promise is not final. We're just implementing the 
+					// writing to the sheet, so we need data to write. We'll finalize that data once we're machine learning these emails
+					// Done > Perfect
+					return Promise.resolve(allResponses.map(function(res) {
+						var headers = res.result.payload.headers;
+						var returnHeaderData = { Date: null, From: null };
+						
+						for(var i = 0; i < headers.length; i++) {
+							if(returnHeaderData.Date && returnHeaderData.From) {
+								break;
+							}
+							if(headers[i].name === 'Date') {
+								returnHeaderData.Date = headers[i].value;
+							}
+							if(headers[i].name === 'From') {
+								returnHeaderData.From = headers[i].value
+							}
+						}
+						return returnHeaderData;
+					}));
+				})
+				.then(function writeResults(responsesHeaderData) {
+					
+					return Sheets.recordApplicationStatuses(responsesHeaderData, _sheetId);
 				})
 				.then(function writeScanTimestamp() {
 					return Sheets.writeLastEmailScan(_sheetId);
