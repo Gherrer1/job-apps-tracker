@@ -98,8 +98,8 @@ var handleClientLoad = (function() {
 		}
 
 		function recordApplicationStatuses(responsesHeaderData, sheetID) {
-
-			responsesHeaderData.forEach( i => console.log(i) );
+			// this prints the headers that we handpicks from those bulky email jsons
+			// responsesHeaderData.forEach( i => console.log(i) ); 
 			return Promise.resolve();
 		}
 
@@ -161,7 +161,6 @@ var handleClientLoad = (function() {
 							returnedData.push(response);
 							// console.log(response);
 							--ajaxCallsRemaining;
-							console.log(`${max-ajaxCallsRemaining} calls completed, ${ajaxCallsRemaining} left`);
 							if(ajaxCallsRemaining <= 0) {
 								return resolve(returnedData);
 							}
@@ -183,14 +182,12 @@ var handleClientLoad = (function() {
 				var set = new Set();
 				// add all the cryptic label_ids to the set
 				emails.map(eml => eml.result.labelIds).forEach(idsArr => idsArr.forEach(id => set.add(id)));
-				// console.log(set);
 				var ajaxCallsRemaining = set.size;
 				var mapping = {};
 				set.forEach(labelId => {
 					getLabel(labelId)
 					.then(res => {
 						ajaxCallsRemaining--;
-						// console.log(res);
 						// if(res.result.name) // check if name is either apps-{sent/rejected/interested}
 						if(['apps-sent', 'apps-rejected', 'apps-interested'].includes(res.result.name)) {
 							mapping[res.result.id] = res.result.name;							
@@ -287,8 +284,8 @@ var handleClientLoad = (function() {
 					appendPre(result ? 'last email scan was on ' + result : 'No email scans yet');
 					return Promise.resolve(result ? new Date(result) : null);
 				})
-				.then(function scanAfter(date) {
-					console.log('Date: ', date, typeof date);
+				.then(function scanMailAfter(date) {
+					// console.log('Date: ', date, typeof date);
 					return date == null ? Mail.scanAll() : Mail.scanAfter(date);
 				})
 				.then(function handleMinimalEmailData(emails) {
