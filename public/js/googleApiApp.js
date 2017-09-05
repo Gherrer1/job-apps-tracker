@@ -135,11 +135,13 @@ var handleClientLoad = (function() {
 
 		function scanAll() {
 			return new Promise(function(resolve, reject) {
+				var label_based_query = 'label:apps-sent'; // TODO - look 2 lines down
 				var apiParams = { userId: 'me', q: apply_q, maxResults: 5000 };
+				apiParams.q = label_based_query; // TODO - implement machine learning and use text classification for scanning emails, not manually given labels
 				gapi.client.gmail.users.messages.list(apiParams)
 					.then(function(response) {
 						appendPre('Scanned all messages...\n\n');
-						return resolve(response.result.messages);
+						return resolve(response.result.messages || []);
 					});
 			});
 		}
@@ -147,6 +149,8 @@ var handleClientLoad = (function() {
 		// Study this
 		function getMessagesByIds(ids) {
 			return new Promise(function(resolve, reject) {
+				if(ids.length === 0)
+					return resolve([]);
 				var ajaxCallsRemaining = ids.length;
 				var max = ajaxCallsRemaining;
 				var returnedData = [];
