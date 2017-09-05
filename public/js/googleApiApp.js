@@ -65,7 +65,7 @@ var handleClientLoad = (function() {
 		 *
 		 * @param {string} id Id of spreadsheet to read
 		 */
-		function readLastEmailScan(id) {
+		function readLastEmailScanCell(id) {
 			return new Promise(function(resolve, reject) {
 				gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: id, range: LAST_SCAN_DATE_CELL })
 					.then(function(result) {
@@ -99,7 +99,7 @@ var handleClientLoad = (function() {
 
 		function recordApplicationStatuses(responsesHeaderData, sheetID) {
 			// this prints the headers that we handpicks from those bulky email jsons
-			// responsesHeaderData.forEach( i => console.log(i) ); 
+			// responsesHeaderData.forEach( i => console.log(i) );
 			return Promise.resolve();
 		}
 
@@ -107,7 +107,7 @@ var handleClientLoad = (function() {
 			retrieveAllFiles: retrieveAllFiles,
 			createSheetNamed: createSheetNamed,
 			findSheetNamed: findSheetNamed,
-			readLastEmailScan: readLastEmailScan,
+			readLastEmailScanCell: readLastEmailScanCell,
 			writeLastEmailScan: writeLastEmailScan,
 			recordApplicationStatuses: recordApplicationStatuses
 		};
@@ -176,8 +176,9 @@ var handleClientLoad = (function() {
 		/**
 		 * Gets the real names of the labels for all the labels of a set of emails and returns them in a Promise
 		 * @param {Array} emails Array of email objects from Google Gmail API
+		 * @return {EmailArray} {LabelMapping} EmailArray - the array of emails passed in. LabelMapping - the mapping of cryptic label_id to label_name
 		 */
-		function throwawayPrintLabels(emails) {
+		function fetchLabelNamesOfEmails(emails) {
 			return new Promise(function(resolve, reject) {
 				var set = new Set();
 				// add all the cryptic label_ids to the set
@@ -188,12 +189,12 @@ var handleClientLoad = (function() {
 					getLabel(labelId)
 					.then(res => {
 						ajaxCallsRemaining--;
-						// if(res.result.name) // check if name is either apps-{sent/rejected/interested}
-						if(['apps-sent', 'apps-rejected', 'apps-interested'].includes(res.result.name)) {
-							mapping[res.result.id] = res.result.name;							
+						var targetLabels = ['apps-sent', 'apps-rejected', 'apps-interested'];
+						if(targetLabels.includes(res.result.name)) {
+							mapping[res.result.id] = res.result.name;
 						}
 						if(ajaxCallsRemaining <= 0) {
-							return resolve(mapping);
+							return resolve({ emails: emails, labelMapping: mapping });
 						}
 					});
 				});
@@ -204,7 +205,7 @@ var handleClientLoad = (function() {
 			scanAll: scanAll,
 			scanAfter: scanAll,
 			getMessagesByIds: getMessagesByIds,
-			throwawayPrintLabels: throwawayPrintLabels
+			fetchLabelNamesOfEmails: fetchLabelNamesOfEmails
 		};
 		return publicAPI;
 	})();
@@ -276,11 +277,11 @@ var handleClientLoad = (function() {
 					_sheetId = sheetID;
 					return sheetID; // string
 				})
-				.then(function readLastEmailScan(sheetID) {
+				.then(function readLastEmailScanCell(sheetID) {
 					appendPre('Your spreadsheets ID is ' + sheetID);
-					return Sheets.readLastEmailScan(sheetID);
+					return Sheets.readLastEmailScanCell(sheetID);
 				})
-				.then(function handleLastScanReadResult(result) {
+				.then(function handleLastEmailScanReadResult(result) {
 					appendPre(result ? 'last email scan was on ' + result : 'No email scans yet');
 					return Promise.resolve(result ? new Date(result) : null);
 				})
@@ -288,40 +289,34 @@ var handleClientLoad = (function() {
 					// console.log('Date: ', date, typeof date);
 					return date == null ? Mail.scanAll() : Mail.scanAfter(date);
 				})
-				.then(function handleMinimalEmailData(emails) {
+				.then(function getMessagesByIds(emailMinimalData) {
 					//
-					return Mail.getMessagesByIds(emails.map(function(email) { return email.id }));
+					return Mail.getMessagesByIds(emailMinimalData.map(function(email) { return email.id }));
 				})
-				.then(function throwawayPrintLabels(allResponses) {
-					Mail.throwawayPrintLabels(allResponses).then(mapping => console.log('done gettinga all label data:)', mapping));
-					return allResponses;
+				.then(function fetchLabelNamesOfEmails(allResponses) {
+
+					return Mail.fetchLabelNamesOfEmails(allResponses);
 				})
-				.then(function handleMessages(allResponses) {
-					appendPre('Done fetching all ' + allResponses.length + ' messages!');
-					// TODO: what we're passing onto the next Promise is not final. We're just implementing the 
-					// writing to the sheet, so we need data to write. We'll finalize that data once we're machine learning these emails
-					// Done > Perfect
-					return Promise.resolve(allResponses.map(function(res) {
-						var headers = res.result.payload.headers;
-						// console.log(res.result);
-						var returnHeaderData = { Date: null, From: null };
-						
-						for(var i = 0; i < headers.length; i++) {
-							if(returnHeaderData.Date && returnHeaderData.From) {
-								break;
-							}
-							if(headers[i].name === 'Date') {
-								returnHeaderData.Date = headers[i].value;
-							}
-							if(headers[i].name === 'From') {
-								returnHeaderData.From = headers[i].value
+				.then(function replaceEmailLabelIDsWithLabelNames(emailsAndLabelMapping) {
+					var mapping = emailsAndLabelMapping.labelMapping;
+					emailsAndLabelMapping.emails.forEach(function addLabelNameField(eml) {
+						var labelIds = eml.result.labelIds;
+						for(var i = 0; i < labelIds.length; i++) {
+							if(mapping[labelIds[i]]) {
+								eml.result.labelName = mapping[labelIds[i]];
+								return;
 							}
 						}
-						return returnHeaderData;
-					}));
+					});
+					delete emailsAndLabelMapping.emails[0].result.labelIds;
+					return emailsAndLabelMapping.emails;
+				})
+				.then(function trimEmailJSONFat(allResponses) {
+					appendPre('Done fetching all ' + allResponses.length + ' messages!\nNow trimming email json');
+					return Promise.resolve(allResponses.map(trimEmailJsonFat));
 				})
 				.then(function writeResults(responsesHeaderData) {
-					
+					console.log(responsesHeaderData);
 					return Sheets.recordApplicationStatuses(responsesHeaderData, _sheetId);
 				})
 				.then(function writeScanTimestamp() {
@@ -373,6 +368,27 @@ var handleClientLoad = (function() {
 		var pre = document.getElementById('content');
 		pre.innerHTML = '';
 	}
+
+	/**
+	 * Email JSON comes with alot of stuff we wont use. Only take what we need
+	 * @param {Email} email The emailData we'll be trimming
+	 * @return {LighterEmail} A new object with just the fields we'll be using
+	 */
+	function trimEmailJsonFat(email) {
+		var headers = email.result.payload.headers;
+		var lighterEmail = { date: null, from: null }; // Subject to expand as app grows in complexity
+		for(var i = 0; i < headers.length; i++) {
+			if(lighterEmail.data && lighterEmail.from)
+				break;
+			if(headers[i].name === 'Date')
+				lighterEmail.date = headers[i].value;
+			if(headers[i].name === 'From')
+				lighterEmail.from = headers[i].value
+		}
+		lighterEmail.labelName = email.result.labelName;
+		return lighterEmail;
+	}
+
 
 	return handleClientLoad;
 })();
