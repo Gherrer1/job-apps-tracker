@@ -170,10 +170,44 @@ var handleClientLoad = (function() {
 			});
 		}
 
+		function getLabel(id) {
+			return gapi.client.gmail.users.labels.get({ id: id, userId: 'me' });
+		}
+
+		/**
+		 * Gets the real names of the labels for all the labels of a set of emails and returns them in a Promise
+		 * @param {Array} emails Array of email objects from Google Gmail API
+		 */
+		function throwawayPrintLabels(emails) {
+			return new Promise(function(resolve, reject) {
+				var set = new Set();
+				// add all the cryptic label_ids to the set
+				emails.map(eml => eml.result.labelIds).forEach(idsArr => idsArr.forEach(id => set.add(id)));
+				// console.log(set);
+				var ajaxCallsRemaining = set.size;
+				var mapping = {};
+				set.forEach(labelId => {
+					getLabel(labelId)
+					.then(res => {
+						ajaxCallsRemaining--;
+						// console.log(res);
+						// if(res.result.name) // check if name is either apps-{sent/rejected/interested}
+						if(['apps-sent', 'apps-rejected', 'apps-interested'].includes(res.result.name)) {
+							mapping[res.result.id] = res.result.name;							
+						}
+						if(ajaxCallsRemaining <= 0) {
+							return resolve(mapping);
+						}
+					});
+				});
+			});
+		}
+
 		var publicAPI = {
 			scanAll: scanAll,
 			scanAfter: scanAll,
-			getMessagesByIds: getMessagesByIds
+			getMessagesByIds: getMessagesByIds,
+			throwawayPrintLabels: throwawayPrintLabels
 		};
 		return publicAPI;
 	})();
@@ -261,6 +295,10 @@ var handleClientLoad = (function() {
 					//
 					return Mail.getMessagesByIds(emails.map(function(email) { return email.id }));
 				})
+				.then(function throwawayPrintLabels(allResponses) {
+					Mail.throwawayPrintLabels(allResponses).then(mapping => console.log('done gettinga all label data:)', mapping));
+					return allResponses;
+				})
 				.then(function handleMessages(allResponses) {
 					appendPre('Done fetching all ' + allResponses.length + ' messages!');
 					// TODO: what we're passing onto the next Promise is not final. We're just implementing the 
@@ -268,6 +306,7 @@ var handleClientLoad = (function() {
 					// Done > Perfect
 					return Promise.resolve(allResponses.map(function(res) {
 						var headers = res.result.payload.headers;
+						// console.log(res.result);
 						var returnHeaderData = { Date: null, From: null };
 						
 						for(var i = 0; i < headers.length; i++) {

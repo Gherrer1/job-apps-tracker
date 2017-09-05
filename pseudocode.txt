@@ -8,3 +8,24 @@ once signed in:
 	update sheet to reflect statuses
 
 Maybe a more reliable mechanism for only fetching brand new job-application emails is to label processed ones with 'processed' label
+
+
+once signed in:
+	check if a sheet named job-apps-tracker exists
+	if not, create it
+	check cell x:y for last_email_scan
+	if none, scan all emails, otherwise scan all emails after that date - scan emails with labels apps-{sent/rejected/interested}
+	those labels wont be aptly named on the emails json - we need to know which is which (ex. apps-sent may be called Label_18 in email JSON) - SO:
+	for each email, add their label_IDs in a Set
+	for each label:
+		get label data from Gmail
+	map labelID to label_name
+	for each email:
+		replace email labelIDs with label_name
+	for each email:
+		if apps-sent:
+			add row in sheet
+		if apps-rejected:
+			find row, if found mark red
+		if app-interested:
+			find row, if found mark yellow/green
