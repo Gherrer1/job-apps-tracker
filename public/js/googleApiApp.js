@@ -135,7 +135,8 @@ var handleClientLoad = (function() {
 
 		function scanAll() {
 			return new Promise(function(resolve, reject) {
-				gapi.client.gmail.users.messages.list({ userId: 'me', q: apply_q, maxResults: 5000 })
+				var apiParams = { userId: 'me', q: apply_q, maxResults: 5000 };
+				gapi.client.gmail.users.messages.list(apiParams)
 					.then(function(response) {
 						appendPre('Scanned all messages...\n\n');
 						return resolve(response.result.messages);

@@ -11,7 +11,8 @@ app.use(logger('dev'));
 app.use(bodyParser.urlencoded({ extended: true }));
 
 app.get('/', function(req, res) {
-  res.render('pages/index');
+  // res.render('pages/index');
+  res.sendFile('codelabquickstart.html', { root: __dirname });
 });
 
 app.get('/gmail', function(req, res) {
