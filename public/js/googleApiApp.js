@@ -135,7 +135,7 @@ var handleClientLoad = (function() {
 
 		function scanAll() {
 			return new Promise(function(resolve, reject) {
-				var label_based_query = 'label:apps-sent'; // TODO - look 2 lines down
+				var label_based_query = 'label:apps-rejected OR label:apps-sent OR label:apps-interested'; // TODO - look 2 lines down
 				var apiParams = { userId: 'me', q: apply_q, maxResults: 5000 };
 				apiParams.q = label_based_query; // TODO - implement machine learning and use text classification for scanning emails, not manually given labels
 				gapi.client.gmail.users.messages.list(apiParams)
