@@ -97,63 +97,6 @@ var handleClientLoad = (function() {
 			});
 		}
 
-		/**
-		 * Checks Cell K1 to determine what row to begin writing new emails to
-		 */
-		function readNextWriteRowCell(id) {
-			return new Promise(function(resolve, reject) {
-				gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: id, range: LAST_WRITE_ROW_CELL })
-				.then(function(result) {
-					var returnWriteRow = 2; // Default row - in the case of empty sheet or NaN value at that cell
-					if(result.result.values) {
-						/* This is a Javascript trick to determine if a number is NaN leveraging the fact that NaN === NaN is false */
-						var parsed = parseInt(result.result.values[0]);
-						console.log(parsed);
-						returnWriteRow = (parsed === parsed ? parsed : returnWriteRow);
-						if(returnWriteRow < 2)
-							returnWriteRow = 2;
-					}
-					return resolve(returnWriteRow);
-				});
-			});
-		}
-
-		function writeLastEmailScan(id) {
-			return new Promise(function(resolve, reject) {
-				var values = [
-					[new Date()]
-				];
-				var body = { values: values };
-				gapi.client.sheets.spreadsheets.values.update({
-					spreadsheetId: id,
-					range: LAST_SCAN_DATE_CELL,
-					resource: body,
-					valueInputOption: 'RAW'
-				})
-					.then(function(result) {
-						return resolve(result);
-					})
-			});
-		}
-
-		function writeNextWriteRowCell(row, id) {
-			return new Promise(function(resolve, reject) {
-				var values = [
-					[ row ]
-				];
-				var body = { values: values };
-				gapi.client.sheets.spreadsheets.values.update({
-					spreadsheetId: id,
-					range: LAST_WRITE_ROW_CELL,
-					resource: body,
-					valueInputOption: 'RAW'
-				})
-				.then(function(result) {
-					return resolve(result);
-				})
-			});
-		}
-
 		function recordApplicationStatuses(responsesHeaderData, sheetID) {
 			// this prints the headers that we handpicks from those bulky email jsons
 			// responsesHeaderData.forEach( i => console.log(i) );
@@ -164,11 +107,7 @@ var handleClientLoad = (function() {
 			retrieveAllFiles: retrieveAllFiles,
 			createSheetNamed: createSheetNamed,
 			findSheetNamed: findSheetNamed,
-			// readLastEmailScanCell: readLastEmailScanCell,
-			writeLastEmailScan: writeLastEmailScan,
 			recordApplicationStatuses: recordApplicationStatuses,
-			readNextWriteRowCell: readNextWriteRowCell,
-			writeNextWriteRowCell: writeNextWriteRowCell,
 			readLastEmailScanAndNextWriteRowCells: readLastEmailScanAndNextWriteRowCells,
 			updateLastEmailScanAndNextRowWrite: updateLastEmailScanAndNextRowWrite
 		};
@@ -402,7 +341,7 @@ var handleClientLoad = (function() {
 				})
 				.then(function(result) {
 					console.log(result);
-					appendPre( result.status === 200 ? 'Saved most recent email scan!' : 'Failed to save most recent email scan' );
+					appendPre( result.status === 200 ? 'Saved most recent email scan and next write row!' : 'Failed to save most recent email scan' );
 				})
 				.catch(function(errorMsg) {
 					//
