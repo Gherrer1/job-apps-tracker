@@ -97,19 +97,41 @@ var handleClientLoad = (function() {
 			});
 		}
 
-		function recordApplicationStatuses(responsesHeaderData, sheetID) {
-			// this prints the headers that we handpicks from those bulky email jsons
-			// responsesHeaderData.forEach( i => console.log(i) );
-			return Promise.resolve();
+		/**
+		 * Processes an array of email data and for each type, takes some action.
+		 * apps-sent: writes a row in the sheet
+		 * apps-rejected: finds row with company and marks it red
+		 * apps-interested: finds row with company and marks it yellow/green
+		 * @return {row} The row from which to start writing on the next email scan
+		 */
+		function writeJobAppsEmails(emailData, row, id) {
+			return new Promise(function(resolve, reject) {
+				var values = [];
+				// for now, just apps-sent
+				var appsSentEmails = emailData.filter(data => data.labelName === 'apps-sent');
+				appsSentEmails.forEach(email => values.push( [email.date, email.from] ));
+				console.log(values.length);
+				var range = `Sheet1!A${row}:B${row + values.length - 1}`;
+				var params = { spreadsheetId: id, range: range, valueInputOption: 'RAW' };
+				var body = { values: values };
+
+				gapi.client.sheets.spreadsheets.values.update(params, body)
+				.then(function(result) {
+					console.log('just wrote apps-sent emails to sheet');
+					console.log(result);
+					return resolve(row + values.length - 1);
+				});
+				// return resolve(row);
+			});
 		}
 
 		var publicAPI = {
 			retrieveAllFiles: retrieveAllFiles,
 			createSheetNamed: createSheetNamed,
 			findSheetNamed: findSheetNamed,
-			recordApplicationStatuses: recordApplicationStatuses,
 			readLastEmailScanAndNextWriteRowCells: readLastEmailScanAndNextWriteRowCells,
-			updateLastEmailScanAndNextRowWrite: updateLastEmailScanAndNextRowWrite
+			updateLastEmailScanAndNextRowWrite: updateLastEmailScanAndNextRowWrite,
+			writeJobAppsEmails: writeJobAppsEmails
 		};
 		return publicAPI;
 	})();
@@ -332,14 +354,15 @@ var handleClientLoad = (function() {
 				})
 				.then(function writeResults(trimmedEmailData) {
 					console.log(trimmedEmailData);
-					// return Sheets.recordApplicationStatuses(_trimmedEmailData, _sheetId);
-					return Promise.resolve();
+					var startRow = _row;
+					return Sheets.writeJobAppsEmails(trimmedEmailData, startRow, _sheetId)
+					// return Promise.resolve();
 				})
-				.then(function updateLastEmailScanAndNextRowWrite() {
-					var row = _row;
+				.then(function updateLastEmailScanAndNextRowWrite(row) {
+					// var row = _row;
 					return Sheets.updateLastEmailScanAndNextRowWrite(row + 1, new Date(), _sheetId);
 				})
-				.then(function(result) {
+				.then(function printEmailScanAndRowWriteUpdateResult(result) {
 					console.log(result);
 					appendPre( result.status === 200 ? 'Saved most recent email scan and next write row!' : 'Failed to save most recent email scan' );
 				})
