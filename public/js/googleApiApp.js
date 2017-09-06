@@ -153,9 +153,13 @@ var handleClientLoad = (function() {
 			});
 		}
 
-		function scanAll() {
+		function scanAll(date) {
 			return new Promise(function(resolve, reject) {
-				var label_based_query = 'label:apps-rejected OR label:apps-sent OR label:apps-interested'; // TODO - look 2 lines down
+				var label_based_query = '{label:apps-rejected label:apps-sent label:apps-interested}'; // TODO - look 2 lines down
+				if(date) {
+					label_based_query += ' after:' + dateFormatter(date);
+					console.log(label_based_query);
+				}
 				var apiParams = { userId: 'me', q: apply_q, maxResults: 5000 };
 				apiParams.q = label_based_query; // TODO - implement machine learning and use text classification for scanning emails, not manually given labels
 				gapi.client.gmail.users.messages.list(apiParams)
@@ -200,6 +204,8 @@ var handleClientLoad = (function() {
 		 */
 		function fetchLabelNamesOfEmails(emails) {
 			return new Promise(function(resolve, reject) {
+				if(emails.length === 0)
+					return resolve({ emails: emails, labelMapping: {} });
 				var set = new Set();
 				// add all the cryptic label_ids to the set
 				emails.map(eml => eml.result.labelIds).forEach(idsArr => idsArr.forEach(id => set.add(id)));
@@ -331,6 +337,8 @@ var handleClientLoad = (function() {
 					return Mail.fetchLabelNamesOfEmails(allResponses);
 				})
 				.then(function replaceEmailLabelIDsWithLabelNames(emailsAndLabelMapping) {
+					if(emailsAndLabelMapping.emails.length === 0)
+						return [];
 					var mapping = emailsAndLabelMapping.labelMapping;
 					emailsAndLabelMapping.emails.forEach(function addLabelNameField(eml) {
 						var labelIds = eml.result.labelIds;
@@ -360,6 +368,7 @@ var handleClientLoad = (function() {
 				.then(function printEmailScanAndRowWriteUpdateResult(result) {
 					console.log(result);
 					appendPre( result.status === 200 ? 'Saved most recent email scan and next write row!' : 'Failed to save most recent email scan' );
+					appendPre('Done!');
 				})
 				.catch(function(errorMsg) {
 					//
@@ -423,6 +432,36 @@ var handleClientLoad = (function() {
 		return lighterEmail;
 	}
 
+	/**
+	 * Converts date object into gmail-search friendly format
+	 * @param {Date} date An instance of Date to be converted to a gmail friendly format.
+	 * @return {String} a string representing a date in the format of yyyy/mm/dd
+	 */
+	function dateFormatter(date) {
+		// console.log(date instanceof Date);
+		if(!(date instanceof Date))
+			throw new Error('date param is not a Date!');
+		return `${date.getFullYear()}/${zeroPad(date.getMonth() + 1)}/${zeroPad(date.getDate())}`;
+	}
+
+	function zeroPad(number) {
+		return number < 10 ? '0' + number : number;
+	}
 
 	return handleClientLoad;
 })();
+
+/* Note:
+	This app sort of has a blind spot. If an email scan is conducted on 9/9/2017,
+		the sheet will record the last update timestamp as 9/9/2017.
+		The next email scan will scan for emails after that date, so if a user
+		were to apply to a job on the night of 9/9/2017, guess what?
+		It wont be picked up by the query.
+
+		Potential solutions:
+			Once we're scanning emails by text analysis:
+				we can mark scanned emails with 'processed' label and start our search on a day before the current day.
+				That way, we might pick up already-processed emails but we'll know to not do anything with them because
+				of their label.
+			Now that I think about it, nothings really stopping me from using that strategy right now.
+*/
