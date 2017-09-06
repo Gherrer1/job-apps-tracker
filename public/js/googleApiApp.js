@@ -110,15 +110,13 @@ var handleClientLoad = (function() {
 				// for now, just apps-sent
 				var appsSentEmails = emailData.filter(data => data.labelName === 'apps-sent');
 				appsSentEmails.forEach(email => values.push( [email.date, email.from] ));
-				console.log(values.length);
 				var range = `Sheet1!A${row}:B${row + values.length - 1}`;
 				var params = { spreadsheetId: id, range: range, valueInputOption: 'RAW' };
 				var body = { values: values };
 
 				gapi.client.sheets.spreadsheets.values.update(params, body)
 				.then(function(result) {
-					console.log('just wrote apps-sent emails to sheet');
-					console.log(result);
+					appendPre('apps-sent emails saved to spreadsheet!');
 					return resolve(row + values.length - 1);
 				});
 				// return resolve(row);
@@ -353,13 +351,10 @@ var handleClientLoad = (function() {
 					return Promise.resolve(_trimmedEmailData);
 				})
 				.then(function writeResults(trimmedEmailData) {
-					console.log(trimmedEmailData);
 					var startRow = _row;
 					return Sheets.writeJobAppsEmails(trimmedEmailData, startRow, _sheetId)
-					// return Promise.resolve();
 				})
 				.then(function updateLastEmailScanAndNextRowWrite(row) {
-					// var row = _row;
 					return Sheets.updateLastEmailScanAndNextRowWrite(row + 1, new Date(), _sheetId);
 				})
 				.then(function printEmailScanAndRowWriteUpdateResult(result) {
