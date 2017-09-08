@@ -20,6 +20,24 @@ var handleClientLoad = (function() {
 		}
 
 		/**
+		 * Searches for a Google Sheets file with the name passed in and returns the id. If no Sheet is found, one is created and the id is returned.
+		 * @param {string} name The name of the file to find
+		 * @return {id} The id string of the file found or created
+		 */
+		function findOrCreateSheetNamed(name) {
+			return new Promise(function(resolve, reject) {
+				findSheetNamed(name)
+				.then(function handleResult(result) {
+					if(result)
+						return resolve(result.id);
+					createSheetNamed(name)
+					.then(response => resolve(response.result.spreadsheetId));
+				})
+				.catch(err => reject(err));
+			});
+		}
+
+		/**
 		 * Creates the job-apps-organizer sheet that we will populate with sent job applications data
 		 *
 		 * @param {string} name The name of the to-be-created sheet.
@@ -124,9 +142,7 @@ var handleClientLoad = (function() {
 		}
 
 		var publicAPI = {
-			retrieveAllFiles: retrieveAllFiles,
-			createSheetNamed: createSheetNamed,
-			findSheetNamed: findSheetNamed,
+			findOrCreateSheetNamed: findOrCreateSheetNamed,
 			readLastEmailScanAndNextWriteRowCells: readLastEmailScanAndNextWriteRowCells,
 			updateLastEmailScanAndNextRowWrite: updateLastEmailScanAndNextRowWrite,
 			writeJobAppsEmails: writeJobAppsEmails
@@ -290,20 +306,11 @@ var handleClientLoad = (function() {
 			var _sheetId;
 			var _trimmedEmailData;
 			var _row;
-			Sheets.findSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
-				.then(function createSheetIfDoesntExist(result) {
-					appendPre('Done searching for spreadsheet');
-					if(!result)
-						appendPre('Didnt find spreadsheet named ' + JOB_APPS_ORGANIZER_SHEET_NAME + ', creating one...');
-					return result ? result.id : Sheets.createSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME);
-				})
-				.then(function parseSheetID(sheetID) {
-					if(typeof sheetID === 'object') {
-						let newlyCreatedSheet = sheetID;
-						sheetID = newlyCreatedSheet.result.spreadsheetId;
-					}
+			Sheets.findOrCreateSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
+				.then(function saveSheetIdInOuterScope(sheetID) {
 					_sheetId = sheetID;
-					return sheetID; // string
+					appendPre('SheetID: ' + sheetID);
+					return sheetID;
 				})
 				.then(function readLastEmailScanAndNextWriteRowCells(sheetID) {
 					return new Promise(function(resolve, reject) {
@@ -384,6 +391,7 @@ var handleClientLoad = (function() {
 	 * Sign in the user upon button click
 	 */
 	function handleAuthClick(event) {
+
 		gapi.auth2.getAuthInstance().signIn();
 	}
 
