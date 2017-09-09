@@ -25,6 +25,11 @@ var handleClientLoad = (function() {
 
 	var Sheets = (function() {
 		var _sheetID;
+		var metaData = {
+			_lastEmailScanDate: null,
+			_lastRowWritten: 1
+		};
+		var META_DATA_CELLS = 'Sheet1!J1:K1'; 		/* J1: lastEmailScan 	K1: lastRowWritten */
 
 		/**
 		 * Finds a file by the name passed in and sets _sheetID. If no sheet is found, new sheet is created and still sets _sheetID
@@ -62,12 +67,14 @@ var handleClientLoad = (function() {
 				findSheetNamed(name)
 				.then(function handleResult(result) {
 					if(result) {
+						appendPre('We have a sheet!');
 						_sheetID = result.id;
 						return resolve(result.id);
 					} else {
+						appendPre('Couldnt find sheet. Creating new one...');
 						createSheetNamed(name)
 						.then(response => {
-							_sheetID = response.result.id;
+							_sheetID = response.result.spreadsheetId;
 							return resolve(response.result.spreadsheetId)
 						});
 					}
@@ -93,66 +100,52 @@ var handleClientLoad = (function() {
 		}
 
 		/**
-		 * Retreive a list of File resources.
+		 * Checks Cell J1:K1 to determine when the last email scan was, if ever, and the last row written to
 		 *
-		 * @param {Function} callback Function to call when the request is complete.
+		 * @return {Object} Either null if no meta data or { date: _, row: _ }
 		 */
-		function retrieveAllFiles(callback) {
-			// @param {Object} request Request object on which to call execute()
-			// @param {Array} result Array on which to append a page's worth of results until we've received all files.
-			var retrievePageOfFiles = function(request, result) {
-				request.execute(function(response) {
-					result = result.concat(response.files);
-					var nextPageToken = response.nextPageToken;
-					if(nextPageToken) {
-						request = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"', pageToken: nextPageToken });
-						retrievePageOfFiles(request, result);
-					} else {
-						callback(result);
-					}
-				});
-			};
-			var initialRequest = gapi.client.drive.files.list({ q: 'mimeType="application/vnd.google-apps.spreadsheet"' });
-			retrievePageOfFiles(initialRequest, []);
-		}
-
-		var LAST_SCAN_DATE_CELL = 'Sheet1!J1:K1';
-		var LAST_WRITE_ROW_CELL = 'Sheet1!K1:L1';
-		/**
-		 * Checks Cell H1 to determine when the last email scan was, if ever
-		 *
-		 * @param {string} id Id of spreadsheet to read
-		 * @return {Object} returns date, row if they exist, null if not
-		 */
-		function readLastEmailScanAndNextWriteRowCells(id) {
+		function readLastScanMetaData() {
 			return new Promise(function(resolve, reject) {
-				gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: id, range: LAST_SCAN_DATE_CELL })
-					.then(function(result) {
-
-						if(result.result.values && result.result.values[0].length >= 2)
-							return resolve({ date: result.result.values[0][0], row: result.result.values[0][1] });
-						return resolve(null);
-				});
+				gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: _sheetID, range: META_DATA_CELLS })
+				.then(function saveResult(result) {
+					// we'll just send the default values if sheet is brand new and has no values yet
+					if(result && result.result.values) {
+						var date = Date.parse(result.result.values[0][1]);
+						if(date === date) {
+							metaData._lastEmailScanDate = new Date(result.result.values[0][1]);
+						}
+						var row = parseInt(result.result.values[0][1]);
+						if(row === row && row > 1) { // row === row is a trick to make sure it's a number, bc NaN === NaN is false
+							metaData._lastRowWritten = row;
+						}
+					}
+					return resolve(getMetaData());
+				})
 			});
 		}
 
-		function updateLastEmailScanAndNextRowWrite(row, timestamp, id) {
+
+		/**
+		 * Saves the timestamp and the last row written meta data into cells J1:K1 so that
+		 * the next run of the program only needs to read emails after that date and know
+		 * where to begin writing new rows
+		 */
+		function writeLastScanMetaData() {
 			return new Promise(function(resolve, reject) {
 				var values = [
-					[timestamp, row]
+					[new Date(), metaData._lastRowWritten]
 				];
 				var body = { values: values };
 				gapi.client.sheets.spreadsheets.values.update({
-					spreadsheetId: id,
-					range: LAST_SCAN_DATE_CELL,
+					spreadsheetId: _sheetID,
+					range: META_DATA_CELLS,
 					resource: body,
 					valueInputOption: 'RAW'
 				})
-				.then(function(result) {
-					return resolve(result);
-				});
+				.then(result => resolve(result));
 			});
 		}
+
 
 		/**
 		 * Processes an array of email data and for each type, takes some action.
@@ -180,10 +173,16 @@ var handleClientLoad = (function() {
 			});
 		}
 
+		function getMetaData() {
+
+			return { date: metaData._lastEmailScanDate, row: metaData._lastRowWritten };
+		}
+
 		var publicAPI = {
 			initWithSheetNamed: initWithSheetNamed,
-			readLastEmailScanAndNextWriteRowCells: readLastEmailScanAndNextWriteRowCells,
-			updateLastEmailScanAndNextRowWrite: updateLastEmailScanAndNextRowWrite,
+			readLastScanMetaData: readLastScanMetaData,
+			writeLastScanMetaData: writeLastScanMetaData,
+			getMetaData: getMetaData,
 			writeJobAppsEmails: writeJobAppsEmails
 		};
 		return publicAPI;
@@ -336,86 +335,63 @@ var handleClientLoad = (function() {
 		if(isSignedIn) {
 			authorizeButton.style.display = 'none';
 			signoutButton.style.display = 'block';
+			
 			/* Essentially where all the magic happens. Once app acknowledges that user is signed in, the app can start running. */
-
 			appendPre('Logged in, looking for your organizer sheet...');
 
-			var JOB_APPS_ORGANIZER_SHEET_NAME = 'fake2';
-			var _sheetId;
+			var JOB_APPS_ORGANIZER_SHEET_NAME = 'fake31';
 			var _trimmedEmailData;
-			var _row;
 
 			Sheets.initWithSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
-				.then(function saveSheetIdInOuterScope(sheetID) {
-					_sheetId = sheetID;
-					appendPre('SheetID: ' + sheetID);
-					return sheetID;
-				})
-				.then(function readLastEmailScanAndNextWriteRowCells(sheetID) {
-					return new Promise(function(resolve, reject) {
-						Sheets.readLastEmailScanAndNextWriteRowCells(sheetID)
-						.then(function(result) {
-							_row = 2;
-							if(result) {
-								var __row = parseInt(result.row);
-								if(__row === __row && __row > 2) {
-									_row = __row;
-								}
-							}
+			.then(id => appendPre('Sheet ID: ' + id))
+			.then(Sheets.readLastScanMetaData)
+			.then(metaData => metaData ? appendPre('Date: ' + metaData.date + '\nRow: ' + metaData.row) : appendPre('Brand new sheet, no meta data yet'))
+			.then(Sheets.writeLastScanMetaData)
+			.then(result => { appendPre('Updated meta data'); console.log(result); })
+			.then(appendPre.bind(null, 'Done!'))
 
-							return resolve(result ? result.date : null);
-						})
-					});
-				})
-				.then(function handleLastEmailScanReadResult(date) {
-					appendPre(date ? 'last email scan was on ' + date : 'No email scans yet');
-					return Promise.resolve(date ? new Date(date) : null);
-				})
-				.then(function scanMailAfter(date) {
-					return date == null ? Mail.scanAll() : Mail.scanAfter(date);
-				})
-				.then(function getMessagesByIds(emailMinimalData) {
-					//
-					return Mail.getMessagesByIds(emailMinimalData.map(function(email) { return email.id }));
-				})
-				.then(function fetchLabelNamesOfEmails(allResponses) {
+			// 	.then(function scanMailAfter(date) {
+			// 		return date == null ? Mail.scanAll() : Mail.scanAfter(date);
+			// 	})
+			// 	.then(function getMessagesByIds(emailMinimalData) {
+			// 		//
+			// 		return Mail.getMessagesByIds(emailMinimalData.map(function(email) { return email.id }));
+			// 	})
+			// 	.then(function fetchLabelNamesOfEmails(allResponses) {
 
-					return Mail.fetchLabelNamesOfEmails(allResponses);
-				})
-				.then(function replaceEmailLabelIDsWithLabelNames(emailsAndLabelMapping) {
-					if(emailsAndLabelMapping.emails.length === 0)
-						return [];
-					var mapping = emailsAndLabelMapping.labelMapping;
-					emailsAndLabelMapping.emails.forEach(function addLabelNameField(eml) {
-						var labelIds = eml.result.labelIds;
-						for(var i = 0; i < labelIds.length; i++) {
-							if(mapping[labelIds[i]]) {
-								eml.result.labelName = mapping[labelIds[i]];
-								return;
-							}
-						}
-					});
-					delete emailsAndLabelMapping.emails[0].result.labelIds;
-					return emailsAndLabelMapping.emails;
-				})
-				.then(function trimEmailJSONFat(allResponses) {
-					appendPre('Done fetching all ' + allResponses.length + ' messages!\nNow trimming email json');
-					var trimmedEmailData = allResponses.map(trimEmailJsonFat);
-					_trimmedEmailData = trimmedEmailData; // save it here but next promise in flow doesnt handle this data so we want to persist it
-					return Promise.resolve(_trimmedEmailData);
-				})
-				.then(function writeResults(trimmedEmailData) {
-					var startRow = _row;
-					return Sheets.writeJobAppsEmails(trimmedEmailData, startRow, _sheetId)
-				})
-				.then(function updateLastEmailScanAndNextRowWrite(row) {
-					return Sheets.updateLastEmailScanAndNextRowWrite(row + 1, new Date(), _sheetId);
-				})
-				.then(function printEmailScanAndRowWriteUpdateResult(result) {
-					console.log(result);
-					appendPre( result.status === 200 ? 'Saved most recent email scan and next write row!' : 'Failed to save most recent email scan' );
-					appendPre('Done!');
-				})
+			// 		return Mail.fetchLabelNamesOfEmails(allResponses);
+			// 	})
+			// 	.then(function replaceEmailLabelIDsWithLabelNames(emailsAndLabelMapping) {
+			// 		if(emailsAndLabelMapping.emails.length === 0)
+			// 			return [];
+			// 		var mapping = emailsAndLabelMapping.labelMapping;
+			// 		emailsAndLabelMapping.emails.forEach(function addLabelNameField(eml) {
+			// 			var labelIds = eml.result.labelIds;
+			// 			for(var i = 0; i < labelIds.length; i++) {
+			// 				if(mapping[labelIds[i]]) {
+			// 					eml.result.labelName = mapping[labelIds[i]];
+			// 					return;
+			// 				}
+			// 			}
+			// 		});
+			// 		delete emailsAndLabelMapping.emails[0].result.labelIds;
+			// 		return emailsAndLabelMapping.emails;
+			// 	})
+			// 	.then(function trimEmailJSONFat(allResponses) {
+			// 		appendPre('Done fetching all ' + allResponses.length + ' messages!\nNow trimming email json');
+			// 		var trimmedEmailData = allResponses.map(trimEmailJsonFat);
+			// 		_trimmedEmailData = trimmedEmailData; // save it here but next promise in flow doesnt handle this data so we want to persist it
+			// 		return Promise.resolve(_trimmedEmailData);
+			// 	})
+			// 	.then(function writeResults(trimmedEmailData) {
+			// 		var startRow = _row;
+			// 		return Sheets.writeJobAppsEmails(trimmedEmailData, startRow, _sheetId)
+			// 	})
+			// 	.then(function printEmailScanAndRowWriteUpdateResult(result) {
+			// 		console.log(result);
+			// 		appendPre( result.status === 200 ? 'Saved most recent email scan and next write row!' : 'Failed to save most recent email scan' );
+			// 		appendPre('Done!');
+			// 	})
 				.catch(function(errorMsg) {
 					//
 					console.log(errorMsg);
