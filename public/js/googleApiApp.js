@@ -1,6 +1,30 @@
 var handleClientLoad = (function() {
 
+	var Util = (function() {
+		function zeroPad(number) {
+			return number < 10 ? '0' + number : number;
+		}
+
+		/**
+		 * Converts date object into gmail-search friendly format
+		 * @param {Date} date An instance of Date to be converted to a gmail friendly format.
+		 * @return {String} a string representing a date in the format of yyyy/mm/dd
+		 */
+		function dateFormatter(date) {
+			// console.log(date instanceof Date);
+			if(!(date instanceof Date))
+				throw new Error('date param is not a Date!');
+			return `${date.getFullYear()}/${zeroPad(date.getMonth() + 1)}/${zeroPad(date.getDate())}`;
+		}
+
+		var publicAPI = {
+			dateFormatter: dateFormatter
+		};
+		return publicAPI;
+	})();
+
 	var Sheets = (function() {
+
 		/**
 		 * Finds a file by the name passed in
 		 *
@@ -173,7 +197,7 @@ var handleClientLoad = (function() {
 			return new Promise(function(resolve, reject) {
 				var label_based_query = '{label:apps-rejected label:apps-sent label:apps-interested}'; // TODO - look 2 lines down
 				if(date) {
-					label_based_query += ' after:' + dateFormatter(date);
+					label_based_query += ' after:' + Util.dateFormatter(date);
 					console.log(label_based_query);
 				}
 				var apiParams = { userId: 'me', q: apply_q, maxResults: 5000 };
@@ -252,12 +276,11 @@ var handleClientLoad = (function() {
 		return publicAPI;
 	})();
 
+	
 	var CLIENT_ID = '643118581198-1ahtvd2u2o98l2hur59mrctu60km0gb7.apps.googleusercontent.com';
-
 	// Array of API discovery doc URLs for APIs used by the quickstart - I guess this adds namespaces (gmail, sheets) to the gapi.client object
 	// because we were allowed to access them and make requests with them before we added the necessary scopes, we just received 403 responses
 	var DISCOVERY_DOCS = ['https://sheets.googleapis.com/$discovery/rest?version=v4', 'https://www.googleapis.com/discovery/v1/apis/gmail/v1/rest', 'https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'];
-
 	// Authorization scopes required by the API; multiple scopes can be included, separated by spaces. - tells googles servers that your app/clientID
 	// can make certain requests
 	var SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/gmail.readonly https://www.googleapis.com/auth/drive";
@@ -438,22 +461,6 @@ var handleClientLoad = (function() {
 		}
 		lighterEmail.labelName = email.result.labelName;
 		return lighterEmail;
-	}
-
-	/**
-	 * Converts date object into gmail-search friendly format
-	 * @param {Date} date An instance of Date to be converted to a gmail friendly format.
-	 * @return {String} a string representing a date in the format of yyyy/mm/dd
-	 */
-	function dateFormatter(date) {
-		// console.log(date instanceof Date);
-		if(!(date instanceof Date))
-			throw new Error('date param is not a Date!');
-		return `${date.getFullYear()}/${zeroPad(date.getMonth() + 1)}/${zeroPad(date.getDate())}`;
-	}
-
-	function zeroPad(number) {
-		return number < 10 ? '0' + number : number;
 	}
 
 	return handleClientLoad;
