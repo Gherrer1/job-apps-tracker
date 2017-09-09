@@ -189,38 +189,54 @@ var handleClientLoad = (function() {
 	})();
 
 	var Mail = (function() {
-		/* Really the magic of this module: the search query that will find all applications-sent emails */
-		var apply_q = '(received application) OR "you applied to"'; //'("submitting" "application")'
-		// var rejected_q = '(not move forward)';
-
-		// Print all labels in the authorized user's inbox. If no labels are found an appropriate message is printed.
-		function listLabels() {
-			return new Promise(function(resolve, reject) {
-				gapi.client.gmail.users.labels.list({
-					'userId': 'me'
-				}).then(function(response) {
-					var labels = response.result.labels;
-					// appendPre('Labels:');
-
-					return resolve(labels);
-				});
-			});
+		var _emails = {
+			_apps_sent: null,
+			_apps_rejected: null,
+			_apps_interested: null
+		};
+		
+		function loadEmailsAfter(date) {
+			return scanAll(date);
 		}
 
 		function scanAll(date) {
 			return new Promise(function(resolve, reject) {
-				var label_based_query = '{label:apps-rejected label:apps-sent label:apps-interested}'; // TODO - look 2 lines down
+				var promises = [
+					getMessagesLabeled('apps-sent', date),
+					getMessagesLabeled('apps-rejected', date),
+					getMessagesLabeled('apps-interested', date)
+				]
+				Promise.all(promises)
+				.then(dataSet => {
+					_emails._apps_sent = dataSet[0];
+					_emails._apps_rejected = dataSet[1];
+					_emails._apps_interested = dataSet[2]
+				})
+				.then(() => resolve(getEmails()));
+			});
+		}
+
+		function getEmails() {
+			return {
+				apps_sent: _emails._apps_sent, apps_rejected: _emails._apps_rejected, apps_interested: _emails._apps_interested
+			};
+		}
+
+		function getMessagesLabeled(label, date) {
+			return new Promise(function(resolve, reject) {
+				var label_based_query = 'label:'+label;
 				if(date) {
 					label_based_query += ' after:' + Util.dateFormatter(date);
-					console.log(label_based_query);
 				}
-				var apiParams = { userId: 'me', q: apply_q, maxResults: 5000 };
-				apiParams.q = label_based_query; // TODO - implement machine learning and use text classification for scanning emails, not manually given labels
+				var apiParams = { userId: 'me', q: label_based_query, maxResults: 1000 };
 				gapi.client.gmail.users.messages.list(apiParams)
-					.then(function(response) {
-						appendPre('Scanned all messages...\n\n');
-						return resolve(response.result.messages || []);
-					});
+				.then(response => { 
+					var messageData = response.result.messages || [];
+					return getMessagesByIds( messageData.map(msg => msg.id) ); 
+				})
+				.then(messages => {
+					resolve(messages)
+				});
 			});
 		}
 
@@ -247,45 +263,10 @@ var handleClientLoad = (function() {
 			});
 		}
 
-		function getLabel(id) {
-			return gapi.client.gmail.users.labels.get({ id: id, userId: 'me' });
-		}
-
-		/**
-		 * Gets the real names of the labels for all the labels of a set of emails and returns them in a Promise
-		 * @param {Array} emails Array of email objects from Google Gmail API
-		 * @return {EmailArray} {LabelMapping} EmailArray - the array of emails passed in. LabelMapping - the mapping of cryptic label_id to label_name
-		 */
-		function fetchLabelNamesOfEmails(emails) {
-			return new Promise(function(resolve, reject) {
-				if(emails.length === 0)
-					return resolve({ emails: emails, labelMapping: {} });
-				var set = new Set();
-				// add all the cryptic label_ids to the set
-				emails.map(eml => eml.result.labelIds).forEach(idsArr => idsArr.forEach(id => set.add(id)));
-				var ajaxCallsRemaining = set.size;
-				var mapping = {};
-				set.forEach(labelId => {
-					getLabel(labelId)
-					.then(res => {
-						ajaxCallsRemaining--;
-						var targetLabels = ['apps-sent', 'apps-rejected', 'apps-interested'];
-						if(targetLabels.includes(res.result.name)) {
-							mapping[res.result.id] = res.result.name;
-						}
-						if(ajaxCallsRemaining <= 0) {
-							return resolve({ emails: emails, labelMapping: mapping });
-						}
-					});
-				});
-			});
-		}
-
 		var publicAPI = {
-			scanAll: scanAll,
-			scanAfter: scanAll,
+			loadEmailsAfter: loadEmailsAfter,
 			getMessagesByIds: getMessagesByIds,
-			fetchLabelNamesOfEmails: fetchLabelNamesOfEmails
+			getEmails: getEmails
 		};
 		return publicAPI;
 	})();
@@ -345,38 +326,22 @@ var handleClientLoad = (function() {
 			Sheets.initWithSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
 			.then(id => appendPre('Sheet ID: ' + id))
 			.then(Sheets.readLastScanMetaData)
-			.then(metaData => metaData ? appendPre('Date: ' + metaData.date + '\nRow: ' + metaData.row) : appendPre('Brand new sheet, no meta data yet'))
+			.then(metaData => { metaData ? appendPre('Date: ' + metaData.date + '\nRow: ' + metaData.row) : appendPre('Brand new sheet, no meta data yet')})
+			.then(Sheets.getMetaData).then(metaData => metaData.date)
+			.then(Mail.loadEmailsAfter)
+			.then(messages => {
+				console.log(messages);
+				['apps_sent', 'apps_rejected', 'apps_interested'].forEach(property => {
+					messages[property] = messages[property].map( trimEmailJsonFat );
+				});
+				return messages;
+			})
+			.then(messages => console.log(messages))
 			.then(Sheets.writeLastScanMetaData)
 			.then(result => { appendPre('Updated meta data'); console.log(result); })
 			.then(appendPre.bind(null, 'Done!'))
 
-			// 	.then(function scanMailAfter(date) {
-			// 		return date == null ? Mail.scanAll() : Mail.scanAfter(date);
-			// 	})
-			// 	.then(function getMessagesByIds(emailMinimalData) {
-			// 		//
-			// 		return Mail.getMessagesByIds(emailMinimalData.map(function(email) { return email.id }));
-			// 	})
-			// 	.then(function fetchLabelNamesOfEmails(allResponses) {
 
-			// 		return Mail.fetchLabelNamesOfEmails(allResponses);
-			// 	})
-			// 	.then(function replaceEmailLabelIDsWithLabelNames(emailsAndLabelMapping) {
-			// 		if(emailsAndLabelMapping.emails.length === 0)
-			// 			return [];
-			// 		var mapping = emailsAndLabelMapping.labelMapping;
-			// 		emailsAndLabelMapping.emails.forEach(function addLabelNameField(eml) {
-			// 			var labelIds = eml.result.labelIds;
-			// 			for(var i = 0; i < labelIds.length; i++) {
-			// 				if(mapping[labelIds[i]]) {
-			// 					eml.result.labelName = mapping[labelIds[i]];
-			// 					return;
-			// 				}
-			// 			}
-			// 		});
-			// 		delete emailsAndLabelMapping.emails[0].result.labelIds;
-			// 		return emailsAndLabelMapping.emails;
-			// 	})
 			// 	.then(function trimEmailJSONFat(allResponses) {
 			// 		appendPre('Done fetching all ' + allResponses.length + ' messages!\nNow trimming email json');
 			// 		var trimmedEmailData = allResponses.map(trimEmailJsonFat);
@@ -451,7 +416,7 @@ var handleClientLoad = (function() {
 			if(headers[i].name === 'From')
 				lighterEmail.from = headers[i].value
 		}
-		lighterEmail.labelName = email.result.labelName;
+		// lighterEmail.labelName = email.result.labelName;
 		return lighterEmail;
 	}
 
