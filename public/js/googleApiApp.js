@@ -24,7 +24,16 @@ var handleClientLoad = (function() {
 	})();
 
 	var Sheets = (function() {
+		var _sheetID;
 
+		/**
+		 * Finds a file by the name passed in and sets _sheetID. If no sheet is found, new sheet is created and still sets _sheetID
+		 * @param name The name of the file to search for
+		 * @return {Promise} The result of the asynchronous search for or creation of the sheet, it's sheetID
+		 */
+		function initWithSheetNamed(name) {
+			return findOrCreateSheetNamed(name);
+		}
 		/**
 		 * Finds a file by the name passed in
 		 *
@@ -52,10 +61,16 @@ var handleClientLoad = (function() {
 			return new Promise(function(resolve, reject) {
 				findSheetNamed(name)
 				.then(function handleResult(result) {
-					if(result)
+					if(result) {
+						_sheetID = result.id;
 						return resolve(result.id);
-					createSheetNamed(name)
-					.then(response => resolve(response.result.spreadsheetId));
+					} else {
+						createSheetNamed(name)
+						.then(response => {
+							_sheetID = response.result.id;
+							return resolve(response.result.spreadsheetId)
+						});
+					}
 				})
 				.catch(err => reject(err));
 			});
@@ -166,7 +181,7 @@ var handleClientLoad = (function() {
 		}
 
 		var publicAPI = {
-			findOrCreateSheetNamed: findOrCreateSheetNamed,
+			initWithSheetNamed: initWithSheetNamed,
 			readLastEmailScanAndNextWriteRowCells: readLastEmailScanAndNextWriteRowCells,
 			updateLastEmailScanAndNextRowWrite: updateLastEmailScanAndNextRowWrite,
 			writeJobAppsEmails: writeJobAppsEmails
@@ -329,7 +344,8 @@ var handleClientLoad = (function() {
 			var _sheetId;
 			var _trimmedEmailData;
 			var _row;
-			Sheets.findOrCreateSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
+
+			Sheets.initWithSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
 				.then(function saveSheetIdInOuterScope(sheetID) {
 					_sheetId = sheetID;
 					appendPre('SheetID: ' + sheetID);
