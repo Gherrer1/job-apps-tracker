@@ -110,9 +110,9 @@ var handleClientLoad = (function() {
 				.then(function saveResult(result) {
 					// we'll just send the default values if sheet is brand new and has no values yet
 					if(result && result.result.values) {
-						var date = Date.parse(result.result.values[0][1]);
+						var date = Date.parse(result.result.values[0][0]);
 						if(date === date) {
-							metaData._lastEmailScanDate = new Date(result.result.values[0][1]);
+							metaData._lastEmailScanDate = new Date(result.result.values[0][0]);
 						}
 						var row = parseInt(result.result.values[0][1]);
 						if(row === row && row > 1) { // row === row is a trick to make sure it's a number, bc NaN === NaN is false
@@ -178,12 +178,49 @@ var handleClientLoad = (function() {
 			return { date: metaData._lastEmailScanDate, row: metaData._lastRowWritten };
 		}
 
+		/**
+		 * Records apps-sent by writing new rows in the spreadsheet.
+		 */
+		function recordAppsSent(apps_sent) {
+			return new Promise(function(resolve, reject) {
+				var startRow = ++metaData._lastRowWritten;
+				// return resolve(row);
+				var values = [];
+				apps_sent.forEach( email => values.push( [email.date, email.from] ) );
+				metaData._lastRowWritten += values.length - 1;
+				var endRow = metaData._lastRowWritten;
+				var range = `Sheet1!A${startRow}:B${endRow}`;
+				var params = { spreadsheetId: _sheetID, range: range, valueInputOption: 'RAW' };
+				var body = { values: values };
+
+				gapi.client.sheets.spreadsheets.values.update(params, body)
+				.then(function(result) {
+					appendPre('apps-sent emails saved to spreadsheet!');
+					return resolve(result);
+				});
+			});
+		}
+
+		/**
+		 * Records apps-sent, apps-rejected, and apps-interested in the spreadsheet.
+		 * @param {Object} emailsLite An object holding 3 arrays of trimmed emails: { apps_sent, apps_rejected, apps_interested }
+		 * @return {Object} The result of the write operations.
+		 */
+		function recordAppStatusesFromEmails(emailsLite) {
+			return new Promise(function(resolve, reject) {
+				var emails = emailsLite;
+				recordAppsSent(emails.apps_sent)
+				.then(res => resolve(res));
+			});
+		}
+
 		var publicAPI = {
 			initWithSheetNamed: initWithSheetNamed,
 			readLastScanMetaData: readLastScanMetaData,
 			writeLastScanMetaData: writeLastScanMetaData,
 			getMetaData: getMetaData,
-			writeJobAppsEmails: writeJobAppsEmails
+			writeJobAppsEmails: writeJobAppsEmails,
+			recordAppStatusesFromEmails: recordAppStatusesFromEmails
 		};
 		return publicAPI;
 	})();
@@ -208,11 +245,11 @@ var handleClientLoad = (function() {
 				]
 				Promise.all(promises)
 				.then(dataSet => {
-					_emails._apps_sent = dataSet[0];
-					_emails._apps_rejected = dataSet[1];
-					_emails._apps_interested = dataSet[2]
+					_emails._apps_sent = dataSet[0]; 		// apps-sent
+					_emails._apps_rejected = dataSet[1]; 	// apps-rejected
+					_emails._apps_interested = dataSet[2]; 	// apps-interested
 				})
-				.then(() => resolve(getEmails()));
+				.then(() => resolve( getEmails() ) );
 			});
 		}
 
@@ -330,37 +367,20 @@ var handleClientLoad = (function() {
 			.then(Sheets.getMetaData).then(metaData => metaData.date)
 			.then(Mail.loadEmailsAfter)
 			.then(messages => {
-				console.log(messages);
-				['apps_sent', 'apps_rejected', 'apps_interested'].forEach(property => {
-					messages[property] = messages[property].map( trimEmailJsonFat );
-				});
+				messages.apps_sent = messages.apps_sent.map( trimEmailJsonFat );
+				messages.apps_rejected = messages.apps_rejected.map ( trimEmailJsonFat );
+				messages.apps_interested = messages.apps_interested.map( trimEmailJsonFat );
 				return messages;
 			})
-			.then(messages => console.log(messages))
+			.then(Sheets.recordAppStatusesFromEmails)
+			.then(res => console.log(res))
 			.then(Sheets.writeLastScanMetaData)
 			.then(result => { appendPre('Updated meta data'); console.log(result); })
 			.then(appendPre.bind(null, 'Done!'))
-
-
-			// 	.then(function trimEmailJSONFat(allResponses) {
-			// 		appendPre('Done fetching all ' + allResponses.length + ' messages!\nNow trimming email json');
-			// 		var trimmedEmailData = allResponses.map(trimEmailJsonFat);
-			// 		_trimmedEmailData = trimmedEmailData; // save it here but next promise in flow doesnt handle this data so we want to persist it
-			// 		return Promise.resolve(_trimmedEmailData);
-			// 	})
-			// 	.then(function writeResults(trimmedEmailData) {
-			// 		var startRow = _row;
-			// 		return Sheets.writeJobAppsEmails(trimmedEmailData, startRow, _sheetId)
-			// 	})
-			// 	.then(function printEmailScanAndRowWriteUpdateResult(result) {
-			// 		console.log(result);
-			// 		appendPre( result.status === 200 ? 'Saved most recent email scan and next write row!' : 'Failed to save most recent email scan' );
-			// 		appendPre('Done!');
-			// 	})
-				.catch(function(errorMsg) {
-					//
-					console.log(errorMsg);
-				});
+			.catch(function(errorMsg) {
+				//
+				console.log(errorMsg);
+			});
 		} else {
 			authorizeButton.style.display = 'block';
 			signoutButton.style.display = 'none';
