@@ -10,8 +10,8 @@ app.use(express.static('public'));
 app.use(logger('dev'));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/', function(req, res) {
-  res.sendFile('codelabquickstart.html', { root: __dirname });
+app.get('/', function(req, res) { 
+  res.sendFile('index.html', { root: __dirname });
 });
 
 // route we may need later

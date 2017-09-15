@@ -1,10 +1,12 @@
-var config = require('./config');
 var GoogleAuth = require('google-auth-library');
 var auth = new GoogleAuth;
-var client = new auth.OAuth2(config.CLIENT_ID, '', '');
+if(!process.env.CLIENT_ID) {
+	throw new Error('Need CLIENT_ID env var to continue.');
+}
+var client = new auth.OAuth2(process.env.CLIENT_ID, '', '');
 
 module.exports = function verifyIdToken(token, callback) {
-  client.verifyIdToken(token, config.CLIENT_ID, function(e, login) {
+  client.verifyIdToken(token, process.env.CLIENT_ID, function(e, login) {
     if(callback)
       return callback(e, login);
   });
