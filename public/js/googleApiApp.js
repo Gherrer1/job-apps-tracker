@@ -70,10 +70,16 @@ function updateSigninStatus(isSignedIn) {
 		.then(Sheets.getMetaData).then(metaData => metaData.date)
 		.then(Mail.loadEmailsAfter)
 		.then(messages => {
-			appendPre('Loaded emails...');
+			let totalNewMessages = messages.apps_sent.length + messages.apps_rejected.length + messages.apps_interested.length;
+			appendPre(`Loaded ${totalNewMessages} new emails...`);
+			console.log(messages);
 			messages.apps_sent = messages.apps_sent.map( trimEmailJsonFat );
 			messages.apps_rejected = messages.apps_rejected.map ( trimEmailJsonFat );
 			messages.apps_interested = messages.apps_interested.map( trimEmailJsonFat );
+			return messages;
+		})
+		.then(function _prettifyFromHeaders(messages) {
+			messages.apps_sent = messages.apps_sent.map( prettifyFromHeaders );
 			return messages;
 		})
 		.then(Sheets.recordAppStatusesFromEmails)
@@ -115,7 +121,8 @@ function handleSignoutClick(event) {
  */
 function trimEmailJsonFat(email) {
 	var headers = email.result.payload.headers;
-	var lighterEmail = { date: null, from: null }; // Subject to expand as app grows in complexity
+	var snippet = email.result.snippet;
+	var lighterEmail = { date: null, from: null, snippet: snippet }; // Subject to expand as app grows in complexity
 	for(var i = 0; i < headers.length; i++) {
 		if(lighterEmail.data && lighterEmail.from)
 			break;
@@ -124,8 +131,12 @@ function trimEmailJsonFat(email) {
 		if(headers[i].name === 'From')
 			lighterEmail.from = headers[i].value
 	}
-	// lighterEmail.labelName = email.result.labelName;
 	return lighterEmail;
+}
+
+function prettifyFromHeaders(email) {
+	console.log(email);
+	return email;
 }
 
 // Expose handleClientLoad to the window/global scope so that 
