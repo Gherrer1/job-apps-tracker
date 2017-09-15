@@ -61,6 +61,7 @@ function updateSigninStatus(isSignedIn) {
 		.then(Sheets.getMetaData).then(metaData => metaData.date)
 		.then(Mail.loadEmailsAfter)
 		.then(messages => {
+			appendPre('Loaded emails...');
 			messages.apps_sent = messages.apps_sent.map( trimEmailJsonFat );
 			messages.apps_rejected = messages.apps_rejected.map ( trimEmailJsonFat );
 			messages.apps_interested = messages.apps_interested.map( trimEmailJsonFat );

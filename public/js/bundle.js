@@ -60,7 +60,7 @@
 /******/ 	__webpack_require__.p = "";
 /******/
 /******/ 	// Load entry module and return exports
-/******/ 	return __webpack_require__(__webpack_require__.s = 0);
+/******/ 	return __webpack_require__(__webpack_require__.s = 1);
 /******/ })
 /************************************************************************/
 /******/ ([
@@ -68,10 +68,34 @@
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
+/* harmony export (immutable) */ __webpack_exports__["a"] = appendPre;
+/* harmony export (immutable) */ __webpack_exports__["b"] = clearPre;
+/**
+ * Append a pre element to the body containing the given message as its text node. Used to display the results of the API call.
+ *
+ * @param {string} message Text to be placed in the pre element.
+ */
+function appendPre(message) {
+	var pre = document.getElementById('content');
+	var textContent = document.createTextNode(message + '\n');
+	pre.appendChild(textContent);
+}
+
+/* removes all the text from the pre element */
+function clearPre() {
+	var pre = document.getElementById('content');
+	pre.innerHTML = '';
+}
+
+/***/ }),
+/* 1 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Sheets__ = __webpack_require__(1);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Mail__ = __webpack_require__(2);
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__UI__ = __webpack_require__(4);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Sheets__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Mail__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__UI__ = __webpack_require__(0);
 
 
 
@@ -135,6 +159,7 @@ function updateSigninStatus(isSignedIn) {
 		.then(__WEBPACK_IMPORTED_MODULE_0__Sheets__["a" /* default */].getMetaData).then(metaData => metaData.date)
 		.then(__WEBPACK_IMPORTED_MODULE_1__Mail__["a" /* default */].loadEmailsAfter)
 		.then(messages => {
+			Object(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */])('Loaded emails...');
 			messages.apps_sent = messages.apps_sent.map( trimEmailJsonFat );
 			messages.apps_rejected = messages.apps_rejected.map ( trimEmailJsonFat );
 			messages.apps_interested = messages.apps_interested.map( trimEmailJsonFat );
@@ -213,10 +238,12 @@ window.handleClientLoad = handleClientLoad;
 
 
 /***/ }),
-/* 1 */
+/* 2 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__UI__ = __webpack_require__(0);
+
 
 var _sheetID;
 var metaData = {
@@ -261,9 +288,11 @@ function findOrCreateSheetNamed(name) {
 		findSheetNamed(name)
 		.then(function handleResult(result) {
 			if(result) {
+				Object(__WEBPACK_IMPORTED_MODULE_0__UI__["a" /* appendPre */])('We have a sheet!');
 				_sheetID = result.id;
 				return resolve(result.id);
 			} else {
+				Object(__WEBPACK_IMPORTED_MODULE_0__UI__["a" /* appendPre */])('Couldnt find a sheet. Creating one for you...');
 				createSheetNamed(name)
 				.then(response => {
 					_sheetID = response.result.spreadsheetId;
@@ -338,32 +367,6 @@ function writeLastScanMetaData() {
 	});
 }
 
-
-/**
- * Processes an array of email data and for each type, takes some action.
- * apps-sent: writes a row in the sheet
- * apps-rejected: finds row with company and marks it red
- * apps-interested: finds row with company and marks it yellow/green
- * @return {row} The row from which to start writing on the next email scan
- */
-function writeJobAppsEmails(emailData, row, id) {
-	return new Promise(function(resolve, reject) {
-		var values = [];
-		// for now, just apps-sent
-		var appsSentEmails = emailData.filter(data => data.labelName === 'apps-sent');
-		appsSentEmails.forEach(email => values.push( [email.date, email.from] ));
-		var range = `Sheet1!A${row}:B${row + values.length - 1}`;
-		var params = { spreadsheetId: id, range: range, valueInputOption: 'RAW' };
-		var body = { values: values };
-
-		gapi.client.sheets.spreadsheets.values.update(params, body)
-		.then(function(result) {
-			return resolve(row + values.length - 1);
-		});
-		// return resolve(row);
-	});
-}
-
 function getMetaData() {
 
 	return { date: metaData._lastEmailScanDate, row: metaData._lastRowWritten };
@@ -386,6 +389,7 @@ function recordAppsSent(apps_sent) {
 
 		gapi.client.sheets.spreadsheets.values.update(params, body)
 		.then(function(result) {
+			Object(__WEBPACK_IMPORTED_MODULE_0__UI__["a" /* appendPre */])('Recorded new sent applications!');
 			return resolve(result);
 		});
 	});
@@ -409,7 +413,6 @@ var SheetsAPI = {
 	readLastScanMetaData: readLastScanMetaData,
 	writeLastScanMetaData: writeLastScanMetaData,
 	getMetaData: getMetaData,
-	writeJobAppsEmails: writeJobAppsEmails,
 	recordAppStatusesFromEmails: recordAppStatusesFromEmails
 };
 
@@ -419,11 +422,11 @@ var SheetsAPI = {
 
 
 /***/ }),
-/* 2 */
+/* 3 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Util__ = __webpack_require__(3);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Util__ = __webpack_require__(4);
 
 
 var _emails = {
@@ -510,7 +513,7 @@ var MailAPI = {
 
 
 /***/ }),
-/* 3 */
+/* 4 */
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
@@ -536,30 +539,6 @@ var UtilAPI = {
 };
 
 /* harmony default export */ __webpack_exports__["a"] = (UtilAPI);
-
-/***/ }),
-/* 4 */
-/***/ (function(module, __webpack_exports__, __webpack_require__) {
-
-"use strict";
-/* harmony export (immutable) */ __webpack_exports__["a"] = appendPre;
-/* harmony export (immutable) */ __webpack_exports__["b"] = clearPre;
-/**
- * Append a pre element to the body containing the given message as its text node. Used to display the results of the API call.
- *
- * @param {string} message Text to be placed in the pre element.
- */
-function appendPre(message) {
-	var pre = document.getElementById('content');
-	var textContent = document.createTextNode(message + '\n');
-	pre.appendChild(textContent);
-}
-
-/* removes all the text from the pre element */
-function clearPre() {
-	var pre = document.getElementById('content');
-	pre.innerHTML = '';
-}
 
 /***/ })
 /******/ ]);

@@ -1,3 +1,4 @@
+import { appendPre } from './UI';
 
 var _sheetID;
 var metaData = {
@@ -42,9 +43,11 @@ function findOrCreateSheetNamed(name) {
 		findSheetNamed(name)
 		.then(function handleResult(result) {
 			if(result) {
+				appendPre('We have a sheet!');
 				_sheetID = result.id;
 				return resolve(result.id);
 			} else {
+				appendPre('Couldnt find a sheet. Creating one for you...');
 				createSheetNamed(name)
 				.then(response => {
 					_sheetID = response.result.spreadsheetId;
@@ -119,32 +122,6 @@ function writeLastScanMetaData() {
 	});
 }
 
-
-/**
- * Processes an array of email data and for each type, takes some action.
- * apps-sent: writes a row in the sheet
- * apps-rejected: finds row with company and marks it red
- * apps-interested: finds row with company and marks it yellow/green
- * @return {row} The row from which to start writing on the next email scan
- */
-function writeJobAppsEmails(emailData, row, id) {
-	return new Promise(function(resolve, reject) {
-		var values = [];
-		// for now, just apps-sent
-		var appsSentEmails = emailData.filter(data => data.labelName === 'apps-sent');
-		appsSentEmails.forEach(email => values.push( [email.date, email.from] ));
-		var range = `Sheet1!A${row}:B${row + values.length - 1}`;
-		var params = { spreadsheetId: id, range: range, valueInputOption: 'RAW' };
-		var body = { values: values };
-
-		gapi.client.sheets.spreadsheets.values.update(params, body)
-		.then(function(result) {
-			return resolve(row + values.length - 1);
-		});
-		// return resolve(row);
-	});
-}
-
 function getMetaData() {
 
 	return { date: metaData._lastEmailScanDate, row: metaData._lastRowWritten };
@@ -167,6 +144,7 @@ function recordAppsSent(apps_sent) {
 
 		gapi.client.sheets.spreadsheets.values.update(params, body)
 		.then(function(result) {
+			appendPre('Recorded new sent applications!');
 			return resolve(result);
 		});
 	});
@@ -190,7 +168,6 @@ var SheetsAPI = {
 	readLastScanMetaData: readLastScanMetaData,
 	writeLastScanMetaData: writeLastScanMetaData,
 	getMetaData: getMetaData,
-	writeJobAppsEmails: writeJobAppsEmails,
 	recordAppStatusesFromEmails: recordAppStatusesFromEmails
 };
 
