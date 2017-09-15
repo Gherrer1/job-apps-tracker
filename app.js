@@ -4,13 +4,12 @@ var logger          = require('morgan');
 var app             = express();
 var verifyToken   = require('./tokenVerifier');
 
-app.set('view engine', 'ejs');
 app.use(express.static('public'));
 
 app.use(logger('dev'));
 app.use(bodyParser.urlencoded({ extended: true }));
 
-app.get('/', function(req, res) { 
+app.get('/', function(req, res) {
   res.sendFile('index.html', { root: __dirname });
 });
 
