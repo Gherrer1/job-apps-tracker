@@ -57,7 +57,7 @@
 /******/ 	__webpack_require__.o = function(object, property) { return Object.prototype.hasOwnProperty.call(object, property); };
 /******/
 /******/ 	// __webpack_public_path__
-/******/ 	__webpack_require__.p = "";
+/******/ 	__webpack_require__.p = "/build";
 /******/
 /******/ 	// Load entry module and return exports
 /******/ 	return __webpack_require__(__webpack_require__.s = 1);
@@ -112,10 +112,11 @@ var SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapi
 var authorizeButton = document.getElementById('authorize-button');
 var signoutButton = document.getElementById('signout-button');
 
+var already_ran = false; // this hidden flag will ensure that the globally-exposed handleClientLoad function cant
+// do anything if run from the command line
 /**
  * On load, called to load the auth2 library and API client library.
  */
-var already_ran = false;
 function handleClientLoad() { // yeah, this is called by onload attribute of script tag that loads google's js. this is called after google's js executes
 	if(!already_ran) {
 		already_ran = true;
