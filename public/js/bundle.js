@@ -530,30 +530,28 @@ var Mail = (function() {
 /***/ (function(module, __webpack_exports__, __webpack_require__) {
 
 "use strict";
-var Util = (function() {
-		function zeroPad(number) {
-			return number < 10 ? '0' + number : number;
-		}
 
-		/**
-		 * Converts date object into gmail-search friendly format
-		 * @param {Date} date An instance of Date to be converted to a gmail friendly format.
-		 * @return {String} a string representing a date in the format of yyyy/mm/dd
-		 */
-		function dateFormatter(date) {
-			// console.log(date instanceof Date);
-			if(!(date instanceof Date))
-				throw new Error('date param is not a Date!');
-			return `${date.getFullYear()}/${zeroPad(date.getMonth() + 1)}/${zeroPad(date.getDate())}`;
-		}
+function zeroPad(number) {
+	return number < 10 ? '0' + number : number;
+}
 
-		var publicAPI = {
-			dateFormatter: dateFormatter
-		};
-		return publicAPI;
-})();
+/**
+ * Converts date object into gmail-search friendly format
+ * @param {Date} date An instance of Date to be converted to a gmail friendly format.
+ * @return {String} a string representing a date in the format of yyyy/mm/dd
+ */
+function dateFormatter(date) {
+	// console.log(date instanceof Date);
+	if(!(date instanceof Date))
+		throw new Error('date param is not a Date!');
+	return `${date.getFullYear()}/${zeroPad(date.getMonth() + 1)}/${zeroPad(date.getDate())}`;
+}
 
-/* harmony default export */ __webpack_exports__["a"] = (Util);
+var UtilAPI = {
+	dateFormatter: dateFormatter
+};
+
+/* harmony default export */ __webpack_exports__["a"] = (UtilAPI);
 
 /***/ })
 /******/ ]);
