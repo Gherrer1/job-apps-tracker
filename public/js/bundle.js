@@ -71,6 +71,8 @@
 Object.defineProperty(__webpack_exports__, "__esModule", { value: true });
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_0__Sheets__ = __webpack_require__(1);
 /* harmony import */ var __WEBPACK_IMPORTED_MODULE_1__Mail__ = __webpack_require__(2);
+/* harmony import */ var __WEBPACK_IMPORTED_MODULE_2__UI__ = __webpack_require__(4);
+
 
 
 
@@ -121,15 +123,15 @@ function updateSigninStatus(isSignedIn) {
 		signoutButton.style.display = 'block';
 		
 		/* Essentially where all the magic happens. Once app acknowledges that user is signed in, the app can start running. */
-		appendPre('Logged in, looking for your organizer sheet...');
+		Object(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */])('Logged in, looking for your organizer sheet...');
 
 		var JOB_APPS_ORGANIZER_SHEET_NAME = 'fake31';
 		var _trimmedEmailData;
 
 		__WEBPACK_IMPORTED_MODULE_0__Sheets__["a" /* default */].initWithSheetNamed(JOB_APPS_ORGANIZER_SHEET_NAME)
-		.then(id => appendPre('Sheet ID: ' + id))
+		.then(id => Object(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */])('Sheet ID: ' + id))
 		.then(__WEBPACK_IMPORTED_MODULE_0__Sheets__["a" /* default */].readLastScanMetaData)
-		.then(metaData => { metaData ? appendPre('Date: ' + metaData.date + '\nRow: ' + metaData.row) : appendPre('Brand new sheet, no meta data yet')})
+		.then(metaData => { metaData ? Object(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */])('Date: ' + metaData.date + '\nRow: ' + metaData.row) : Object(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */])('Brand new sheet, no meta data yet')})
 		.then(__WEBPACK_IMPORTED_MODULE_0__Sheets__["a" /* default */].getMetaData).then(metaData => metaData.date)
 		.then(__WEBPACK_IMPORTED_MODULE_1__Mail__["a" /* default */].loadEmailsAfter)
 		.then(messages => {
@@ -141,8 +143,8 @@ function updateSigninStatus(isSignedIn) {
 		.then(__WEBPACK_IMPORTED_MODULE_0__Sheets__["a" /* default */].recordAppStatusesFromEmails)
 		.then(res => console.log(res))
 		.then(__WEBPACK_IMPORTED_MODULE_0__Sheets__["a" /* default */].writeLastScanMetaData)
-		.then(result => { appendPre('Updated meta data'); console.log(result); })
-		.then(appendPre.bind(null, 'Done!'))
+		.then(result => { Object(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */])('Updated meta data'); console.log(result); })
+		.then(__WEBPACK_IMPORTED_MODULE_2__UI__["a" /* appendPre */].bind(null, 'Done!'))
 		.catch(function(errorMsg) {
 			//
 			console.log(errorMsg);
@@ -166,25 +168,9 @@ function handleAuthClick(event) {
  */
 function handleSignoutClick(event) {
 	gapi.auth2.getAuthInstance().signOut();
-	clearPre();
+	Object(__WEBPACK_IMPORTED_MODULE_2__UI__["b" /* clearPre */])();
 }
 
-/**
- * Append a pre element to the body containing the given message as its text node. Used to display the results of the API call.
- *
- * @param {string} message Text to be placed in the pre element.
- */
-function appendPre(message) {
-	var pre = document.getElementById('content');
-	var textContent = document.createTextNode(message + '\n');
-	pre.appendChild(textContent);
-}
-
-/* removes all the text from the pre element */
-function clearPre() {
-	var pre = document.getElementById('content');
-	pre.innerHTML = '';
-}
 
 /**
  * Email JSON comes with alot of stuff we wont use. Only take what we need
@@ -550,6 +536,30 @@ var UtilAPI = {
 };
 
 /* harmony default export */ __webpack_exports__["a"] = (UtilAPI);
+
+/***/ }),
+/* 4 */
+/***/ (function(module, __webpack_exports__, __webpack_require__) {
+
+"use strict";
+/* harmony export (immutable) */ __webpack_exports__["a"] = appendPre;
+/* harmony export (immutable) */ __webpack_exports__["b"] = clearPre;
+/**
+ * Append a pre element to the body containing the given message as its text node. Used to display the results of the API call.
+ *
+ * @param {string} message Text to be placed in the pre element.
+ */
+function appendPre(message) {
+	var pre = document.getElementById('content');
+	var textContent = document.createTextNode(message + '\n');
+	pre.appendChild(textContent);
+}
+
+/* removes all the text from the pre element */
+function clearPre() {
+	var pre = document.getElementById('content');
+	pre.innerHTML = '';
+}
 
 /***/ })
 /******/ ]);

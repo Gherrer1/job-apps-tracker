@@ -1,5 +1,6 @@
 import Sheets from './Sheets';
 import Mail from './Mail';
+import { appendPre, clearPre } from './UI';
 
 
 var CLIENT_ID = '643118581198-1ahtvd2u2o98l2hur59mrctu60km0gb7.apps.googleusercontent.com';
@@ -96,22 +97,6 @@ function handleSignoutClick(event) {
 	clearPre();
 }
 
-/**
- * Append a pre element to the body containing the given message as its text node. Used to display the results of the API call.
- *
- * @param {string} message Text to be placed in the pre element.
- */
-function appendPre(message) {
-	var pre = document.getElementById('content');
-	var textContent = document.createTextNode(message + '\n');
-	pre.appendChild(textContent);
-}
-
-/* removes all the text from the pre element */
-function clearPre() {
-	var pre = document.getElementById('content');
-	pre.innerHTML = '';
-}
 
 /**
  * Email JSON comes with alot of stuff we wont use. Only take what we need
