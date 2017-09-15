@@ -1,4 +1,4 @@
-var handleClientLoad = (function() {
+(function() {
 
 	var Util = (function() {
 		function zeroPad(number) {
@@ -440,7 +440,7 @@ var handleClientLoad = (function() {
 		return lighterEmail;
 	}
 
-	return handleClientLoad;
+	window.handleClientLoad = handleClientLoad;
 })();
 
 /* Note:
