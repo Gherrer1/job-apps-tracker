@@ -65,6 +65,8 @@ function updateSigninStatus(isSignedIn) {
 		.then(id => appendPre('Sheet ID: ' + id))
 		.then(Sheets.readLastScanMetaData)
 		.then(metaData => { metaData ? appendPre('Date: ' + metaData.date + '\nRow: ' + metaData.row) : appendPre('Brand new sheet, no meta data yet')})
+		.then(Sheets.readAllCells)
+		.then(cells => appendPre(`Loaded in ${cells.length} job app rows into memory...`))
 		.then(Sheets.getMetaData).then(metaData => metaData.date)
 		.then(Mail.loadEmailsAfter)
 		.then(messages => {

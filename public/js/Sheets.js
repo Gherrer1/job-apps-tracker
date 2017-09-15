@@ -6,6 +6,7 @@ var metaData = {
 	_lastRowWritten: 1
 };
 var META_DATA_CELLS = 'Sheet1!J1:K1'; 		/* J1: lastEmailScan 	K1: lastRowWritten */
+var cells = [];
 
 /**
  * Finds a file by the name passed in and sets _sheetID. If no sheet is found, new sheet is created and still sets _sheetID
@@ -100,6 +101,26 @@ function readLastScanMetaData() {
 	});
 }
 
+/**
+ * Reads in ALL cells and loads them into memory.
+ * Why would we do this? Because when processing apps-rejected and apps-interested, we want to be able to scan the
+ * sheet loaded in memory instead of making more API calls. This way, we can check if a row exists already for those 
+ * jobs so we can color them red/green respectively
+ */
+function readAllCells() {
+	return new Promise(function(resolve, reject) {
+		if(metaData._lastRowWritten < 2)
+			return resolve(cells);
+		let range = `Sheet1!A2:B${metaData._lastRowWritten}`;
+		gapi.client.sheets.spreadsheets.values.get({ spreadsheetId: _sheetID, range: range})
+		.then(function saveResult(result) {
+			if(result && result.result.values) {
+				cells = result.result.values;
+			}
+			return resolve(cells);
+		});
+	});
+}
 
 /**
  * Saves the timestamp and the last row written meta data into cells J1:K1 so that
@@ -168,7 +189,8 @@ var SheetsAPI = {
 	readLastScanMetaData: readLastScanMetaData,
 	writeLastScanMetaData: writeLastScanMetaData,
 	getMetaData: getMetaData,
-	recordAppStatusesFromEmails: recordAppStatusesFromEmails
+	recordAppStatusesFromEmails: recordAppStatusesFromEmails,
+	readAllCells: readAllCells
 };
 
 
