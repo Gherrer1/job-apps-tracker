@@ -14,11 +14,18 @@ var SCOPES = "https://www.googleapis.com/auth/spreadsheets https://www.googleapi
 var authorizeButton = document.getElementById('authorize-button');
 var signoutButton = document.getElementById('signout-button');
 
+var already_ran = false; // this hidden flag will ensure that the globally-exposed handleClientLoad function cant
+// do anything if run from the command line
 /**
  * On load, called to load the auth2 library and API client library.
  */
 function handleClientLoad() { // yeah, this is called by onload attribute of script tag that loads google's js. this is called after google's js executes
-	gapi.load('client:auth2', initClient);
+	if(!already_ran) {
+		already_ran = true;
+		gapi.load('client:auth2', initClient);
+	} else {
+		console.log('already ran, sorry ;)');
+	}
 }
 
 /**
