@@ -16,7 +16,7 @@ function dateFormatter(date) {
 }
 
 var UtilAPI = {
-	dateFormatter: dateFormatter
+	dateFormatter
 };
 
 export default UtilAPI;

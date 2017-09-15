@@ -75,9 +75,9 @@ function getMessagesByIds(ids) {
 }
 
 var MailAPI = {
-	loadEmailsAfter: loadEmailsAfter,
-	getMessagesByIds: getMessagesByIds,
-	getEmails: getEmails
+	loadEmailsAfter,
+	getMessagesByIds,
+	getEmails
 };
 
 export default MailAPI;

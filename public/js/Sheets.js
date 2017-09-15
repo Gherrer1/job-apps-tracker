@@ -185,12 +185,12 @@ function recordAppStatusesFromEmails(emailsLite) {
 }
 
 var SheetsAPI = {
-	initWithSheetNamed: initWithSheetNamed,
-	readLastScanMetaData: readLastScanMetaData,
-	writeLastScanMetaData: writeLastScanMetaData,
-	getMetaData: getMetaData,
-	recordAppStatusesFromEmails: recordAppStatusesFromEmails,
-	readAllCells: readAllCells
+	initWithSheetNamed,
+	readLastScanMetaData,
+	writeLastScanMetaData,
+	getMetaData,
+	recordAppStatusesFromEmails,
+	readAllCells
 };
 
 
