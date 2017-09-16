@@ -25,11 +25,43 @@ function prettifyFromLinkedIn(email) {
 	email.from = newFrom;
 }
 
+function prettifyFromWithLTGT(email) {
+	var originalFrom = email.from;
+	var split = email.from.split(/<.*>/);
+	// only want to change email.from if <.*> doesnt comprise the entire from header - very rare case
+	if(!(split[0] === '' && split[1] === ''))
+		email.from = split[0];
+	else
+		email.from = email.from.substr(1, email.from.length - 2);
+}
+
+function prettifyFromWithNoReply(email) {
+	var split = email.from.split(/no.*reply@/);
+	if(split[0] === '')
+		email.from = split[1];
+	else
+		email.from = split[0];
+}
+
+function prettifyFromWithQuotes(email) {
+	var newFrom = email.from.split('"').join('');
+	email.from = newFrom;
+}
+
+
 export function prettifyFromHeaders(email) {
 	var from = email.from;
 	// handle linkedin 
 	if(from === 'LinkedIn <jobs-listings@linkedin.com>')
 		prettifyFromLinkedIn(email);
-
+	else if(/<.*>/.test(from))
+		prettifyFromWithLTGT(email);
+	
+// Consider these more like clean up
+	// remove surrounding quotes
+	if(/^".*"/.test(email.from))
+		prettifyFromWithQuotes(email);
+	if(/no.*reply@/.test(email.from))
+		prettifyFromWithNoReply(email);
 	return email;
 }
