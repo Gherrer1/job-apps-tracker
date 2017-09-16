@@ -15,8 +15,16 @@ function dateFormatter(date) {
 	return `${date.getFullYear()}/${zeroPad(date.getMonth() + 1)}/${zeroPad(date.getDate())}`;
 }
 
+function sheetFriendlyDateFromatter(date) {
+	if(!(date instanceof Date))
+		throw new Error('date param is not a Date!');
+	return `${date.getMonth() + 1}/${zeroPad(date.getDate())}/${date.getFullYear() % 1000}`;
+}
+
+
 var UtilAPI = {
-	dateFormatter
+	dateFormatter,
+	sheetFriendlyDateFromatter
 };
 
 export default UtilAPI;

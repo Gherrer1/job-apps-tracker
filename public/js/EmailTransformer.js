@@ -1,3 +1,5 @@
+import Util from './Util';
+
 /**
  * Email JSON comes with alot of stuff we wont use. Only take what we need
  * @param {Email} email The emailData we'll be trimming
@@ -48,7 +50,6 @@ function prettifyFromWithQuotes(email) {
 	email.from = newFrom;
 }
 
-
 export function prettifyFromHeaders(email) {
 	var from = email.from;
 	// handle linkedin 
@@ -63,5 +64,12 @@ export function prettifyFromHeaders(email) {
 		prettifyFromWithQuotes(email);
 	if(/no.*reply@/.test(email.from))
 		prettifyFromWithNoReply(email);
+	return email;
+}
+
+export function prettifyDateHeader(email) {
+	// console.log(email.date, typeof email.date);
+	// console.log(new Date(email.date));
+	email.date = Util.sheetFriendlyDateFromatter(new Date(email.date));
 	return email;
 }

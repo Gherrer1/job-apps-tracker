@@ -1,7 +1,7 @@
 import Sheets from './Sheets';
 import Mail from './Mail';
 import { appendPre, clearPre } from './UI';
-import { trimEmailJsonFat, prettifyFromHeaders } from './EmailTransformer';
+import { trimEmailJsonFat, prettifyFromHeaders, prettifyDateHeader } from './EmailTransformer';
 
 
 var CLIENT_ID = '643118581198-1ahtvd2u2o98l2hur59mrctu60km0gb7.apps.googleusercontent.com';
@@ -78,8 +78,8 @@ function updateSigninStatus(isSignedIn) {
 			messages.apps_interested = messages.apps_interested.map( trimEmailJsonFat );
 			return messages;
 		})
-		.then(function _prettifyFromHeaders(messages) {
-			messages.apps_sent = messages.apps_sent.map( prettifyFromHeaders );
+		.then(function _prettifyFromAndDateHeaders(messages) {
+			messages.apps_sent = messages.apps_sent.map( prettifyFromHeaders ).map( prettifyDateHeader );
 			return messages;
 		})
 		.then(Sheets.recordAppStatusesFromEmails)
