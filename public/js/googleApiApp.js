@@ -1,6 +1,7 @@
 import Sheets from './Sheets';
 import Mail from './Mail';
 import { appendPre, clearPre } from './UI';
+import { trimEmailJsonFat, prettifyFromHeaders } from './EmailTransformer';
 
 
 var CLIENT_ID = '643118581198-1ahtvd2u2o98l2hur59mrctu60km0gb7.apps.googleusercontent.com';
@@ -69,10 +70,9 @@ function updateSigninStatus(isSignedIn) {
 		.then(cells => appendPre(`Loaded in ${cells.length} job app rows into memory...`))
 		.then(Sheets.getMetaData).then(metaData => metaData.date)
 		.then(Mail.loadEmailsAfter)
-		.then(messages => {
+		.then(function _trimEmailJsonFat(messages) {
 			let totalNewMessages = messages.apps_sent.length + messages.apps_rejected.length + messages.apps_interested.length;
 			appendPre(`Loaded ${totalNewMessages} new emails...`);
-			console.log(messages);
 			messages.apps_sent = messages.apps_sent.map( trimEmailJsonFat );
 			messages.apps_rejected = messages.apps_rejected.map ( trimEmailJsonFat );
 			messages.apps_interested = messages.apps_interested.map( trimEmailJsonFat );
@@ -111,32 +111,6 @@ function handleAuthClick(event) {
 function handleSignoutClick(event) {
 	gapi.auth2.getAuthInstance().signOut();
 	clearPre();
-}
-
-
-/**
- * Email JSON comes with alot of stuff we wont use. Only take what we need
- * @param {Email} email The emailData we'll be trimming
- * @return {LighterEmail} A new object with just the fields we'll be using
- */
-function trimEmailJsonFat(email) {
-	var headers = email.result.payload.headers;
-	var snippet = email.result.snippet;
-	var lighterEmail = { date: null, from: null, snippet: snippet }; // Subject to expand as app grows in complexity
-	for(var i = 0; i < headers.length; i++) {
-		if(lighterEmail.data && lighterEmail.from)
-			break;
-		if(headers[i].name === 'Date')
-			lighterEmail.date = headers[i].value;
-		if(headers[i].name === 'From')
-			lighterEmail.from = headers[i].value
-	}
-	return lighterEmail;
-}
-
-function prettifyFromHeaders(email) {
-	console.log(email);
-	return email;
 }
 
 // Expose handleClientLoad to the window/global scope so that 
